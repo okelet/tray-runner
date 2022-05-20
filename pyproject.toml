@@ -6,7 +6,7 @@ homepage = "https://github.com/okelet/tray-runner"
 name = "tray-runner"
 readme = "README.md"
 repository = "https://github.com/okelet/tray-runner"
-version = "0.3.1"
+version = "0.3.2"
 
 [tool.poetry.dependencies]
 Babel = "^2.10.1"
@@ -21,7 +21,7 @@ pywin32 = [{ version = "^304", platform = "win32" }]
 
 [tool.poetry.scripts]
 tray-runner-cli = "tray_runner.cli:run"
-tray-runner-desktop = "tray_runner.gui:run"
+tray-runner-gui = "tray_runner.gui:run"
 
 [tool.poetry.dev-dependencies]
 black = "^22.3.0"

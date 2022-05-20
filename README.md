@@ -65,6 +65,7 @@ tray-runner-gui --help
 
 * Translations (raw Python and QT)
 * One-file executables (and portables) for Linux and Windows
+* Log viewer
 
 ## Development
 
