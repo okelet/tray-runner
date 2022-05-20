@@ -4,9 +4,9 @@ Tray Runner is a simple application that runs in the system tray and executes pe
 
 The application has been tested on Linux (Ubuntu) and Windows 10, but should run on any modern operating system, as the UI relies on QT.
 
-![Main configuration window](docs/config_commands.png)
+![Main configuration window](https://github.com/okelet/tray-runner/raw/main/docs/config_commands.png)
 
-![Command configuration](docs/command_general.png)
+![Command configuration](https://github.com/okelet/tray-runner/raw/main/docs/command_general.png)
 
 Check [more screenshots here](#more-screenshots).
 
@@ -36,7 +36,7 @@ tray-runner-gui
 
 Check the options running `tray-runner-gui --help`. The first time the program is executed, a shortcut in the applications menu and in the auto start directory will be created. Also, you will be asked to configure the application:
 
-![First run](docs/first_run.png)
+![First run](https://github.com/okelet/tray-runner/raw/main/docs/first_run.png)
 
 ### Fedora/RHEL based
 
@@ -123,28 +123,28 @@ poetry run pre-commit run --all-files
 
 List of commands:
 
-![List of commands](docs/config_commands.png)
+![List of commands](https://github.com/okelet/tray-runner/raw/main/docs/config_commands.png)
 
 General configuration:
 
-![General configuration](docs/config_general.png)
+![General configuration](https://github.com/okelet/tray-runner/raw/main/docs/config_general.png)
 
 Commands common configuration:
 
-![Commands common configuration](docs/config_common.png)
+![Commands common configuration](https://github.com/okelet/tray-runner/raw/main/docs/config_common.png)
 
 Command configuration:
 
-![Command configuration](docs/command_general.png)
+![Command configuration](https://github.com/okelet/tray-runner/raw/main/docs/command_general.png)
 
 Command overrides:
 
-![Command overrides](docs/command_options.png)
+![Command overrides](https://github.com/okelet/tray-runner/raw/main/docs/command_options.png)
 
 Command environment variables:
 
-![Command environment variables](docs/command_environment.png)
+![Command environment variables](https://github.com/okelet/tray-runner/raw/main/docs/command_environment.png)
 
 Command statistics:
 
-![Command statistics](docs/command_statistics.png)
+![Command statistics](https://github.com/okelet/tray-runner/raw/main/docs/command_statistics.png)
