@@ -7,10 +7,12 @@ import sys
 
 import click
 
+from tray_runner.constants import DEVELOPMENT_VERSION
+
 try:
     __version__ = importlib.metadata.version(__package__)
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "__DEVELOPMENT__"
+    __version__ = DEVELOPMENT_VERSION
 
 PACKAGE_DIR = os.path.dirname(__file__)
 

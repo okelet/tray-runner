@@ -1,6 +1,7 @@
 """
 tray_runner.gui.settings modules.
 """
+from datetime import timedelta
 import os
 import uuid
 from gettext import gettext
@@ -53,6 +54,7 @@ class CommandDialog(QDialog):
     error_runs_label: QLabel
     failed_runs_label: QLabel
     last_run_dt_label: QLabel
+    next_run_dt_label: QLabel
     last_run_exit_code_label: QLabel
     last_successful_run_dt_label: QLabel
     last_duration_label: QLabel
@@ -114,6 +116,13 @@ class CommandDialog(QDialog):
         self.error_runs_label.setText(format_decimal(self.command.error_runs, locale=get_simple_default_locale()))
         self.failed_runs_label.setText(format_decimal(self.command.failed_runs, locale=get_simple_default_locale()))
         self.last_run_dt_label.setText(format_datetime(self.command.last_run_dt.replace(tzinfo=pytz.UTC).astimezone(local_tz), locale=get_simple_default_locale()) if self.command.last_run_dt else gettext("Never"))
+        if self.command.disabled:
+            self.next_run_dt_label.setText(gettext("Never (command disabled)"))
+        else:
+            if self.command.last_run_dt:
+                self.next_run_dt_label.setText(format_datetime(self.command.last_run_dt.replace(tzinfo=pytz.UTC).astimezone(local_tz) + timedelta(seconds=self.command.seconds_between_executions), locale=get_simple_default_locale()) if self.command.last_run_dt else gettext("Never"))
+            else:
+                self.next_run_dt_label.setText(gettext("Unknown"))
         self.last_run_exit_code_label.setText(str(self.command.last_run_exit_code) if self.command.last_run_exit_code is not None else gettext("Unknown"))
         self.last_successful_run_dt_label.setText(format_datetime(self.command.last_successful_run_dt.replace(tzinfo=pytz.UTC).astimezone(local_tz), locale=get_simple_default_locale()) if self.command.last_successful_run_dt else gettext("Never"))
         self.last_duration_label.setText(gettext("{seconds} seconds").format(seconds=format_decimal(self.command.last_duration, locale=get_simple_default_locale())) if self.command.last_duration is not None else gettext("Unknown"))

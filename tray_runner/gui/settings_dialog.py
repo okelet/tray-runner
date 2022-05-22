@@ -7,11 +7,12 @@ from gettext import gettext
 from typing import TYPE_CHECKING, Optional
 
 import click
+from babel.numbers import format_decimal
 from PySide6.QtGui import QIcon, QScreen
 from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QDialog, QLabel, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QWidget
 
 import tray_runner
-from tray_runner.common_utils.common import remove_app_menu_shortcut
+from tray_runner.common_utils.common import get_simple_default_locale, remove_app_menu_shortcut
 from tray_runner.common_utils.qt import load_ui, set_warning_style
 from tray_runner.config import ConfigCommand, LogLevelEnum
 from tray_runner.constants import APP_NAME
@@ -47,6 +48,8 @@ class SettingsDialog(QDialog):
     edit_command_button: QPushButton
     show_command_logs_button: QPushButton
     delete_command_button: QPushButton
+
+    app_runs_label: QLabel
 
     def __init__(self, parent: QWidget, app: "TrayCmdRunnerApp", warning_style: Optional[int] = None, warning_text: Optional[str] = None):  # pylint: disable=too-many-statements
         """
@@ -124,6 +127,8 @@ class SettingsDialog(QDialog):
         self.edit_command_button.setEnabled(False)
         self.show_command_logs_button.setEnabled(False)
         self.delete_command_button.setEnabled(False)
+
+        self.app_runs_label.setText(format_decimal(self.app.config.app_runs, locale=get_simple_default_locale()))
 
     def update_commands_list(self):
         """

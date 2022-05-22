@@ -79,9 +79,13 @@ class ConfigCommand(BaseModel):
     ok_runs: int = Field(default=0, description="When a run has returned an exit code 0.")
     error_runs: int = Field(default=0, description="When a run was OK, but returned an exit code different that 0.")
     failed_runs: int = Field(default=0, description="When a run threw an error.")
+
     last_run_dt: Optional[datetime]
     last_run_exit_code: Optional[int]
+    last_run_error_message: Optional[str]
+
     last_successful_run_dt: Optional[datetime]
+
     last_duration: Optional[float]
     min_duration: Optional[float]
     max_duration: Optional[float]
@@ -175,6 +179,8 @@ class Config(BaseModel):
     show_error_notifications: bool = Field(default=True)
 
     commands: List[ConfigCommand] = Field(default=[])
+
+    app_runs: int = Field(default=0)
 
     def get_command_by_name(self, command_name: str) -> Optional[ConfigCommand]:
         """

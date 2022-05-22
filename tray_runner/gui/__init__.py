@@ -22,7 +22,7 @@ import tray_runner
 from tray_runner import DEFAULT_CONFIG_FILE, __version__
 from tray_runner.common_utils.common import CommandAborted, coalesce, remove_app_menu_shortcut, run_command
 from tray_runner.config import Config, ConfigCommand, ConfigCommandLogItem
-from tray_runner.constants import APP_ID, APP_NAME, APP_URL
+from tray_runner.constants import APP_ID, APP_NAME, APP_URL, DEVELOPMENT_VERSION
 from tray_runner.gui.constants import ABOUT_ICON_PATH, CIRCLE_ICON_PATH, COMMAND_ERROR_ICON_PATH, COMMAND_OK_ICON_PATH, EXIT_ICON_PATH, ICON_PATH, REGULAR_ICON_PATH, SETTINGS_ICON_PATH, WARNING_ICON_PATH
 from tray_runner.gui.settings_dialog import SettingsDialog
 from tray_runner.utils import PackagePathFilter, create_tray_runner_app_menu_launcher, create_tray_runner_autostart_shortcut
@@ -46,22 +46,18 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
         self.command = command
         self.update_menu_signal.connect(self.app.update_status)  # type: ignore[attr-defined]
         self.notification_signal.connect(self.app.show_notification)  # type: ignore[attr-defined]
-        self.last_run_dt = None
-        self.last_status = None
-        self.last_error_message = None
 
     def run(self):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """
         Overridden method from parent class, implementing the logic of the thread.
         """
 
-        last_run_dt = None
         while True:
 
             if self.isInterruptionRequested():
                 break
 
-            if last_run_dt and (datetime.utcnow() - last_run_dt).total_seconds() < self.command.seconds_between_executions:
+            if self.command.last_run_dt and (datetime.utcnow() - self.command.last_run_dt).total_seconds() < self.command.seconds_between_executions:
                 QThread.sleep(1)
                 continue
 
@@ -77,15 +73,10 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
             if not os.path.exists(working_directory):
                 working_directory = os.path.expanduser("~")
 
-            last_run_dt = datetime.utcnow()
-
             LOG.info("Executing command %s - %s...", self.command.name, self.command.command)
             start_time = datetime.utcnow()
             self.command.total_runs += 1
             self.command.last_run_dt = start_time
-            self.last_run_dt = start_time
-            self.last_status = None
-            self.last_error_message = None
             exit_code = None
             error_message = None
             elapsed_time = None
@@ -98,8 +89,8 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
                 elapsed_time = (end_time - start_time).total_seconds()
                 LOG.debug("Command %s - %s exited with code %s (took %s seconds).", self.command.name, self.command.command, exit_code, f"{elapsed_time:.2f}")
                 self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, pid=pid, exit_code=exit_code, stdout=stdout, stderr=stderr))
+                self.command.last_run_error_message = None
                 self.command.last_run_exit_code = exit_code
-                self.last_status = exit_code
                 if exit_code == 0:
                     self.command.last_successful_run_dt = start_time
                     self.command.last_duration = elapsed_time
@@ -130,7 +121,8 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
                 LOG.warning("Error running command %s - %s : %s.", self.command.name, self.command.command, error_message)
                 self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, error_message=error_message))
                 self.command.failed_runs += 1
-                self.last_error_message = str(ex)
+                self.command.last_run_error_message = error_message
+                self.command.last_run_exit_code = None
 
             # Save command run statistics
             self.app.save_config()
@@ -204,8 +196,15 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
 
         self.qt_app = qt_app
         self.main_window = main_window
+        if config_path is None:
+            config_path = DEFAULT_CONFIG_FILE
         self.config_path = config_path
+        conf_file_exists = True
+        if not os.path.exists(self.config_path):
+            conf_file_exists = False
         self.config: Config = Config.load_from_file(self.config_path)
+        self.config.app_runs += 1
+        self.save_config()
         if not log_level_already_set:
             logging.getLogger(tray_runner.__name__).setLevel(logging.getLevelName(self.config.log_level))
 
@@ -247,7 +246,7 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
 
         if show_config:
             self.edit_configuration()
-        elif not os.path.exists(self.config_path or DEFAULT_CONFIG_FILE):
+        elif not conf_file_exists:
             self.save_config()
             if QMessageBox.question(self.main_window, gettext("Welcome"), gettext("Welcome! This is the first time you run the application. Do you want to configure it?")) == QMessageBox.StandardButton.Yes:
                 self.edit_configuration()
@@ -268,15 +267,12 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
 
         # Sample action
         for command in sorted(self.config.commands, key=lambda x: x.name.lower()):
-            command_thread = self.get_command_thread(command)
-            if command_thread:
-                if command_thread.last_error_message or command_thread.last_status:
+            if not command.disabled:
+                if command.last_run_error_message or command.last_run_exit_code:
                     icon = COMMAND_ERROR_ICON_PATH
                 else:
                     icon = COMMAND_OK_ICON_PATH
-            else:
-                icon = CIRCLE_ICON_PATH
-            self._menu.addAction(QIcon(icon), command.name, partial(click.launch, command.get_log_file_path()))
+                self._menu.addAction(QIcon(icon), command.name, partial(click.launch, command.get_log_file_path()))
 
         # Separator
         self._menu.addSeparator()
@@ -286,7 +282,10 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
         # self._menu.addAction(QIcon(SETTINGS_ICON_PATH), gettext("Edit configuration"), self.edit_configuration_file)
 
         # Add a About and Quit options to the menu.
-        self._menu.addAction(QIcon(ABOUT_ICON_PATH), gettext("About"), self.about)
+        if __version__ == DEVELOPMENT_VERSION:
+            self._menu.addAction(QIcon(ABOUT_ICON_PATH), gettext("About - {version}").format(version=gettext("Development")), self.about)
+        else:
+            self._menu.addAction(QIcon(ABOUT_ICON_PATH), gettext("About - {version}").format(version=__version__), self.about)
         self._menu.addAction(QIcon(EXIT_ICON_PATH), gettext("Quit"), self.quit)
 
     def edit_configuration(self, warning_style: Optional[int] = None, warning_text: Optional[str] = None):
@@ -306,22 +305,16 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
         """
         Calls the OS functions to open the configuration file and edit it.
         """
-        self._tray.showMessage(gettext("Edit configuration"), gettext("The configuration file will be opened in the default editor."), self.get_icon(QStyle.SP_DriveFDIcon))
-        click.launch(self.config_path or DEFAULT_CONFIG_FILE)
-
-    def get_icon(self, icon: QStyle.StandardPixmap) -> QIcon:
-        """
-        Gets an icon from the current application style.
-        """
-        return self.qt_app.style().standardIcon(icon)
+        self._tray.showMessage(gettext("Edit configuration"), gettext("The configuration file will be opened in the default editor."), QIcon(SETTINGS_ICON_PATH))
+        click.launch(self.config_path)
 
     def update_status(self):
         """
         Function that updates tray icon and tooltip, according to the commands' status. Usually fired by the signals from the command threads.
         """
         has_error = False
-        for command in self.command_threads:
-            if command.last_error_message or command.last_status:
+        for command_thread in self.command_threads:
+            if command_thread.command.last_run_error_message or command_thread.command.last_run_exit_code:
                 has_error = True
                 break
         if has_error:
@@ -332,14 +325,11 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
             self._tray.setToolTip(gettext("{app_name}: Everything is OK.").format(app_name=APP_NAME))
         self.rebuild_menu()
 
-    def show_notification(self, title, message, icon=None):
+    def show_notification(self, title, message):
         """
         Shows a notification provided by the tray. Usually fired by the signals from the command threads.
         """
-        if icon:
-            self._tray.showMessage(title, message, self.get_icon(icon))
-        else:
-            self._tray.showMessage(title, message)
+        self._tray.showMessage(title, message, QIcon(ICON_PATH))
 
     def stop_command_thread(self, command: ConfigCommand):
         """

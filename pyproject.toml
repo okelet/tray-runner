@@ -6,7 +6,7 @@ homepage = "https://github.com/okelet/tray-runner"
 name = "tray-runner"
 readme = "README.md"
 repository = "https://github.com/okelet/tray-runner"
-version = "0.3.3"
+version = "0.3.4"
 
 [tool.poetry.dependencies]
 Babel = "^2.10.1"
@@ -47,6 +47,10 @@ profile = "black"
 
 [tool.mypy]
 show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["winshell"]
+ignore_missing_imports = true
 
 [tool.pylint.format]
 max-line-length = 999
