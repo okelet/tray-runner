@@ -34,7 +34,7 @@ def run_command(command: str, environ: Optional[Dict[str, str]] = None, run_in_s
     cmd_run_in_shell = False
     cmd: Union[str, List[str]]
     if sys.platform == "win32":
-        cmd = ["powershell", "-Command", command]
+        cmd = ["powershell", "-WindowStyle", "hidden", "-Command", command]
     else:
         if run_in_shell:
             # When running using a shell, we don't have to split the command
