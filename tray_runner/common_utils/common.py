@@ -31,23 +31,20 @@ def run_command(command: str, environ: Optional[Dict[str, str]] = None, run_in_s
     """
     if poll_period_ms is None:
         poll_period_ms = 500
-    cmd_run_in_shell = False
     cmd: Union[str, List[str]]
-    if sys.platform == "win32":
-        cmd = ["powershell", "-WindowStyle", "hidden", "-Command", command]
+    if run_in_shell is None:
+        run_in_shell = False
+    if run_in_shell:
+        # When running using a shell, we don't have to split the command
+        cmd = command
     else:
-        if run_in_shell:
-            # When running using a shell, we don't have to split the command
-            cmd = command
-            cmd_run_in_shell = True
-        else:
-            cmd = shlex.split(command)
+        cmd = shlex.split(command)
 
     new_env = os.environ.copy()
     if environ:
         new_env = {**new_env, **environ}
 
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, env=new_env, cwd=working_directory, shell=cmd_run_in_shell) as process:
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, env=new_env, cwd=working_directory, shell=run_in_shell) as process:
         LOG.debug("Waiting for command %s to finish...", command)
         while True:
             if thread and thread.isInterruptionRequested():

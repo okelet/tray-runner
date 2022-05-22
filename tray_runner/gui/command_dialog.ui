@@ -221,7 +221,7 @@
           <item row="0" column="1">
            <widget class="QCheckBox" name="run_in_shell_checkbox">
             <property name="text">
-             <string>Run in shell (only Linux)</string>
+             <string>Run in shell</string>
             </property>
             <property name="tristate">
              <bool>true</bool>

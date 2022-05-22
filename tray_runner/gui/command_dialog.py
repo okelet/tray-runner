@@ -1,9 +1,9 @@
 """
 tray_runner.gui.settings modules.
 """
-from datetime import timedelta
 import os
 import uuid
+from datetime import timedelta
 from gettext import gettext
 from typing import TYPE_CHECKING, Optional
 
