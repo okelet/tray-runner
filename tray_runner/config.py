@@ -214,17 +214,18 @@ class Config(BaseModel):
             LOG.error("Error saving configuration file %s: %s.", file_path or DEFAULT_CONFIG_FILE, str(ex), exc_info=True)
 
     @staticmethod
-    def load_from_file(file_path: Optional[str] = None) -> "Config":
+    def load_from_file(file_path: str, raise_if_missing: Optional[bool] = False) -> "Config":
         """
-        Loads the configuration from the file specified or from the default.
+        Loads the configuration from the file specified.
         """
-        if file_path:
-            if not os.path.exists(file_path) or not os.path.isfile(file_path):
-                raise Exception(f"Configuration file {file_path} doesn't exist.")
-        else:
-            file_path = DEFAULT_CONFIG_FILE
         if not os.path.exists(file_path):
+            if raise_if_missing:
+                raise Exception(f"Configuration file {file_path} doesn't exist.")
             return Config()
+
+        if not os.path.isfile(file_path):
+            raise Exception(f"Configuration file {file_path} is not a file.")
+
         try:
             with click.open_file(file_path) as file_obj:
                 json_object = json.load(file_obj)

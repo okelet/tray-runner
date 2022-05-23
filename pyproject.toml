@@ -6,7 +6,7 @@ homepage = "https://github.com/okelet/tray-runner"
 name = "tray-runner"
 readme = "README.md"
 repository = "https://github.com/okelet/tray-runner"
-version = "0.3.4"
+version = "0.3.5"
 
 [tool.poetry.dependencies]
 Babel = "^2.10.1"
