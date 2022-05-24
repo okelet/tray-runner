@@ -3,22 +3,21 @@ tray_runner.gui.settings modules.
 """
 import os
 import uuid
-from datetime import timedelta
 from gettext import gettext
 from typing import TYPE_CHECKING, Optional
 
-import pytz
 from babel.dates import format_datetime
 from babel.numbers import format_decimal
-from dateutil.tz import tzlocal
+from croniter import croniter
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor, QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QTableView, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QTableView, QWidget
 from slugify import slugify
 
 from tray_runner.common_utils.common import get_simple_default_locale
 from tray_runner.common_utils.qt import checkbox_tristate_from_val, checkbox_tristate_to_val, load_ui
-from tray_runner.config import ConfigCommand, ConfigCommandEnvironmentVariable
+from tray_runner.config import ConfigCommand, ConfigCommandEnvironmentVariable, ConfigCommandRunMode
+from tray_runner.utils import ensure_local_datetime
 
 if TYPE_CHECKING:
     from tray_runner.gui import TrayCmdRunnerApp
@@ -36,8 +35,13 @@ class CommandDialog(QDialog):
     working_directory_choose_button: QPushButton
     working_directory_text_box: QLineEdit
     max_log_count_spin_box: QSpinBox
-    seconds_between_executions_spin_box: QSpinBox
     disabled_checkbox: QCheckBox
+
+    run_mode_combo_box: QComboBox
+    seconds_between_executions_label: QLabel
+    seconds_between_executions_spin_box: QSpinBox
+    cron_expr_label: QLabel
+    cron_expr_text_box: QLineEdit
 
     run_in_shell_checkbox: QCheckBox
     restart_on_exit_checkbox: QCheckBox
@@ -88,8 +92,17 @@ class CommandDialog(QDialog):
         self.working_directory_text_box.setText(self.command.working_directory)
         self.working_directory_choose_button.clicked.connect(self.working_directory_choose_button_clicked)
         self.max_log_count_spin_box.setValue(self.command.max_log_count)
-        self.seconds_between_executions_spin_box.setValue(self.command.seconds_between_executions)
         self.disabled_checkbox.setChecked(self.command.disabled)
+
+        self.run_mode_combo_box.currentIndexChanged.connect(self.on_run_mode_combo_box_currentIndexChanged)
+        for idx, data in enumerate(ConfigCommandRunMode):
+            self.run_mode_combo_box.addItem(data.display_name(), data.value)
+            if data.value == self.command.run_mode.value:
+                self.run_mode_combo_box.setCurrentIndex(idx)
+        self.run_mode_combo_box.currentIndexChanged.connect(self.on_run_mode_combo_box_currentIndexChanged)
+        self.seconds_between_executions_spin_box.setValue(self.command.seconds_between_executions)
+        if self.command.cron_expr:
+            self.cron_expr_text_box.setText(self.command.cron_expr)
 
         self.run_in_shell_checkbox.setCheckState(checkbox_tristate_from_val(self.command.run_in_shell))
         self.restart_on_exit_checkbox.setCheckState(checkbox_tristate_from_val(self.command.restart_on_exit))
@@ -110,21 +123,21 @@ class CommandDialog(QDialog):
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
 
-        local_tz = tzlocal()
         self.total_runs_label.setText(format_decimal(self.command.total_runs, locale=get_simple_default_locale()))
         self.ok_runs_label.setText(format_decimal(self.command.ok_runs, locale=get_simple_default_locale()))
         self.error_runs_label.setText(format_decimal(self.command.error_runs, locale=get_simple_default_locale()))
         self.failed_runs_label.setText(format_decimal(self.command.failed_runs, locale=get_simple_default_locale()))
-        self.last_run_dt_label.setText(format_datetime(self.command.last_run_dt.replace(tzinfo=pytz.UTC).astimezone(local_tz), locale=get_simple_default_locale()) if self.command.last_run_dt else gettext("Never"))
+        self.last_run_dt_label.setText(format_datetime(ensure_local_datetime(self.command.last_run_dt), locale=get_simple_default_locale()) if self.command.last_run_dt else gettext("Never"))
         if self.command.disabled:
             self.next_run_dt_label.setText(gettext("Never (command disabled)"))
         else:
-            if self.command.last_run_dt:
-                self.next_run_dt_label.setText(format_datetime(self.command.last_run_dt.replace(tzinfo=pytz.UTC).astimezone(local_tz) + timedelta(seconds=self.command.seconds_between_executions), locale=get_simple_default_locale()) if self.command.last_run_dt else gettext("Never"))
+            next_run_dt = self.command.get_next_execution_dt()
+            if next_run_dt:
+                self.next_run_dt_label.setText(format_datetime(ensure_local_datetime(next_run_dt), locale=get_simple_default_locale()))
             else:
                 self.next_run_dt_label.setText(gettext("Unknown"))
         self.last_run_exit_code_label.setText(str(self.command.last_run_exit_code) if self.command.last_run_exit_code is not None else gettext("Unknown"))
-        self.last_successful_run_dt_label.setText(format_datetime(self.command.last_successful_run_dt.replace(tzinfo=pytz.UTC).astimezone(local_tz), locale=get_simple_default_locale()) if self.command.last_successful_run_dt else gettext("Never"))
+        self.last_successful_run_dt_label.setText(format_datetime(ensure_local_datetime(self.command.last_successful_run_dt), locale=get_simple_default_locale()) if self.command.last_successful_run_dt else gettext("Never"))
         self.last_duration_label.setText(gettext("{seconds} seconds").format(seconds=format_decimal(self.command.last_duration, locale=get_simple_default_locale())) if self.command.last_duration is not None else gettext("Unknown"))
         self.min_duration_label.setText(gettext("{seconds} seconds").format(seconds=format_decimal(self.command.min_duration, locale=get_simple_default_locale())) if self.command.min_duration is not None else gettext("Unknown"))
         self.max_duration_label.setText(gettext("{seconds} seconds").format(seconds=format_decimal(self.command.max_duration, locale=get_simple_default_locale())) if self.command.max_duration is not None else gettext("Unknown"))
@@ -147,6 +160,21 @@ class CommandDialog(QDialog):
         chosen = QFileDialog.getExistingDirectory(self, gettext("Select directory"), current_dir)
         if chosen:
             self.working_directory_text_box.setText(chosen)
+
+    def on_run_mode_combo_box_currentIndexChanged(self):
+        """
+        Hides/SHows related fields when the run mode combo box changes.
+        """
+        self.seconds_between_executions_label.hide()
+        self.seconds_between_executions_spin_box.hide()
+        self.cron_expr_label.hide()
+        self.cron_expr_text_box.hide()
+        if ConfigCommandRunMode[self.run_mode_combo_box.currentData()] == ConfigCommandRunMode.PERIOD:
+            self.seconds_between_executions_label.show()
+            self.seconds_between_executions_spin_box.show()
+        elif ConfigCommandRunMode[self.run_mode_combo_box.currentData()] == ConfigCommandRunMode.CRON:
+            self.cron_expr_label.show()
+            self.cron_expr_text_box.show()
 
     def environment_table_menu(self):
         """
@@ -223,6 +251,20 @@ class CommandDialog(QDialog):
                 if QMessageBox.question(self, gettext("Validation error"), gettext("Directory {working_directory} doesn't exist. Are you sure you want to use it? During execution, if this directory doesn't exist, the current user home directory will be used.").format(working_directory=working_directory)) != QMessageBox.StandardButton.Yes:
                     return
 
+        # Check cron expr
+        run_mode = ConfigCommandRunMode[self.run_mode_combo_box.currentData()]
+        period = self.seconds_between_executions_spin_box.value()
+        cron_expr = self.cron_expr_text_box.text()
+        if run_mode == ConfigCommandRunMode.CRON:
+            if not cron_expr:
+                QMessageBox.warning(self, gettext("Validation error"), gettext("The cron expression can't be empty."))
+                self.cron_expr_text_box.setFocus()
+                return
+            if not croniter.is_valid(cron_expr):
+                QMessageBox.warning(self, gettext("Validation error"), gettext("The cron expression is not valid."))
+                self.cron_expr_text_box.setFocus()
+                return
+
         # Configure environment variables
         new_environment = []
         for index in range(self.environment_table_model.rowCount()):
@@ -242,8 +284,11 @@ class CommandDialog(QDialog):
         self.command.command = self.command_text_box.text()
         self.command.working_directory = working_directory
         self.command.max_log_count = self.max_log_count_spin_box.value()
-        self.command.seconds_between_executions = self.seconds_between_executions_spin_box.value()
         self.command.disabled = self.disabled_checkbox.isChecked()
+
+        self.command.run_mode = run_mode
+        self.command.seconds_between_executions = period
+        self.command.cron_expr = cron_expr
 
         self.command.run_in_shell = checkbox_tristate_to_val(self.run_in_shell_checkbox.checkState())
         self.command.restart_on_exit = checkbox_tristate_to_val(self.restart_on_exit_checkbox.checkState())

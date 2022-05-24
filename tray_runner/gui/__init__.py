@@ -7,27 +7,35 @@ import signal
 import sys
 import tempfile
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 from gettext import gettext
 from logging.handlers import RotatingFileHandler
 from typing import List, Optional
 
 import click
+from croniter import croniter
+from dateutil.relativedelta import relativedelta
 from PySide6.QtCore import QLockFile, QThread, QTimer, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QMessageBox, QStyle, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QMessageBox, QSystemTrayIcon
 
 import tray_runner
 from tray_runner import DEFAULT_CONFIG_FILE, __version__
 from tray_runner.common_utils.common import CommandAborted, coalesce, remove_app_menu_shortcut, run_command
-from tray_runner.config import Config, ConfigCommand, ConfigCommandLogItem
+from tray_runner.config import Config, ConfigCommand, ConfigCommandLogItem, ConfigCommandRunMode
 from tray_runner.constants import APP_ID, APP_NAME, APP_URL, DEVELOPMENT_VERSION
 from tray_runner.gui.constants import ABOUT_ICON_PATH, CIRCLE_ICON_PATH, COMMAND_ERROR_ICON_PATH, COMMAND_OK_ICON_PATH, EXIT_ICON_PATH, ICON_PATH, REGULAR_ICON_PATH, SETTINGS_ICON_PATH, WARNING_ICON_PATH
 from tray_runner.gui.settings_dialog import SettingsDialog
 from tray_runner.utils import PackagePathFilter, create_tray_runner_app_menu_launcher, create_tray_runner_autostart_shortcut
 
 LOG = logging.getLogger(__name__)
+
+
+class CommandThreadAbortedException(Exception):
+    """
+    Exception thrown when the user has requested to quit the application, so command threads are stopped.
+    """
 
 
 class CommandThread(QThread):  # pylint: disable=too-few-public-methods
@@ -57,7 +65,7 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
             if self.isInterruptionRequested():
                 break
 
-            if self.command.last_run_dt and (datetime.utcnow() - self.command.last_run_dt).total_seconds() < self.command.seconds_between_executions:
+            if datetime.utcnow() < self.command.get_next_execution_dt():
                 QThread.sleep(1)
                 continue
 
@@ -131,7 +139,7 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
             self.update_menu_signal.emit()
 
             if aborted:
-                return
+                break
 
             if exit_code is None:
                 # Failed to run

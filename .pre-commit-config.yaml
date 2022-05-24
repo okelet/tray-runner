@@ -27,6 +27,7 @@ repos:
             types-python-slugify,
             types-python-dateutil,
             types-babel,
+            types-croniter,
             IceSpringPySideStubs-PySide6,
           ]
   - repo: https://github.com/pycqa/isort

@@ -80,16 +80,9 @@ class SettingsDialog(QDialog):
         else:
             self.warning_label.hide()
 
-        self.log_values = [
-            ("DEBUG", "DEBUG"),
-            ("INFO", "INFO"),
-            ("WARNING", "WARNING"),
-            ("ERROR", "ERROR"),
-            ("CRITICAL", "CRITICAL"),
-        ]
-        for idx, (key, val) in enumerate(self.log_values):
-            self.log_level_combo_box.addItem(val, key)
-            if key == self.app.config.log_level.value:
+        for idx, data in enumerate(LogLevelEnum):
+            self.log_level_combo_box.addItem(data.display_name(), data.value)
+            if data.value == self.app.config.log_level.value:
                 self.log_level_combo_box.setCurrentIndex(idx)
         self.log_level_combo_box.currentIndexChanged.connect(self.log_level_combo_box_changed)
         self.create_app_menu_shortcut_checkbox.setChecked(self.app.config.create_app_menu_shortcut)
@@ -147,10 +140,9 @@ class SettingsDialog(QDialog):
         """
         Saves the config for the log level option.
         """
-        log_level_name = self.log_values[self.log_level_combo_box.currentIndex()][0]
-        self.app.config.log_level = LogLevelEnum[log_level_name]
+        self.app.config.log_level = LogLevelEnum[self.log_level_combo_box.currentData()]
         self.app.save_config()
-        logging.getLogger(tray_runner.__name__).setLevel(log_level_name)
+        logging.getLogger(tray_runner.__name__).setLevel(self.app.config.log_level.value)
 
     def create_app_menu_shortcut_checkbox_changed(self):
         """

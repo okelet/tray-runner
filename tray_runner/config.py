@@ -5,15 +5,21 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
+from gettext import gettext
 from typing import Dict, List, Optional
 
 import click
+import pytz
+from croniter import croniter
+from dateutil.relativedelta import relativedelta
+from dateutil.tz import tzlocal
 from pydantic import BaseModel, Field
 from slugify import slugify
 
 from tray_runner import APP_DIR, DEFAULT_CONFIG_FILE
+from tray_runner.utils import ensure_local_datetime
 
 LOG = logging.getLogger(__name__)
 
@@ -52,6 +58,24 @@ class ConfigCommandEnvironmentVariable(BaseModel):  # pylint: disable=too-few-pu
     value: str
 
 
+class ConfigCommandRunMode(str, Enum):
+    """
+    Class to enumerate the log levels.
+    """
+
+    PERIOD = "PERIOD"
+    CRON = "CRON"
+
+    def display_name(self):
+        """
+        Returns a friendly display name.
+        """
+        return {
+            self.PERIOD.value: gettext("Period"),
+            self.CRON.value: gettext("Cron"),
+        }.get(self.value, self.value)
+
+
 class ConfigCommand(BaseModel):
     """
     ConfigCommand class.
@@ -64,8 +88,11 @@ class ConfigCommand(BaseModel):
     environment: List[ConfigCommandEnvironmentVariable] = Field(default=[])
     description: Optional[str]
     disabled: bool = Field(default=False)
-    seconds_between_executions: int = Field(default=30)
     max_log_count: int = Field(default=100)
+
+    run_mode: ConfigCommandRunMode = Field(default=ConfigCommandRunMode.PERIOD)
+    seconds_between_executions: int = Field(default=30)
+    cron_expr: Optional[str]
 
     run_in_shell: Optional[bool]
     restart_on_exit: Optional[bool]
@@ -90,6 +117,31 @@ class ConfigCommand(BaseModel):
     min_duration: Optional[float]
     max_duration: Optional[float]
     avg_duration: Optional[float]
+
+    def get_next_execution_dt(self) -> Optional[datetime]:
+        """
+        Get the command's next execution date/time, according to its status and run mode.
+        """
+        if self.disabled:
+            return None
+        if self.run_mode == ConfigCommandRunMode.PERIOD:
+            if self.last_run_dt:
+                return self.last_run_dt + timedelta(seconds=self.seconds_between_executions)
+            return datetime.utcnow() - relativedelta(years=1)
+        if self.run_mode == ConfigCommandRunMode.CRON:
+            # Get the next cron schedule based on the system timezone (offset-aware)
+            # But return it as UTC, removing the timezone info (offset-naive) so it can be compared using datetime.utcnow()
+            if self.cron_expr:
+                if self.last_run_dt:
+                    return croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(self.last_run_dt)).astimezone(pytz.UTC).replace(tzinfo=None)
+                # When the command has not run yet, we have to simulate a past moment (10 seconds ago)
+                # because if we use datetime.utcnow() and later compare with current datetime, the comparison will never match.
+                # if datetime.utcnow() < self.command.get_next_execution_dt():
+                #     QThread.sleep(1)
+                #     continue
+                return croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(datetime.utcnow() - relativedelta(seconds=10))).astimezone(pytz.UTC).replace(tzinfo=None)
+            raise Exception(f"Command run mode is {self.run_mode.value}, but no cron_expr set.")
+        raise Exception(f"Invalid run mode: {self.run_mode}.")
 
     def environment_as_dict(self) -> Dict[str, str]:
         """
@@ -159,6 +211,18 @@ class LogLevelEnum(str, Enum):
     WARNING = logging.getLevelName(logging.WARNING)
     ERROR = logging.getLevelName(logging.ERROR)
     CRITICAL = logging.getLevelName(logging.CRITICAL)
+
+    def display_name(self):
+        """
+        Returns a friendly display name.
+        """
+        return {
+            self.DEBUG.value: gettext("Debug"),
+            self.INFO.value: gettext("Info"),
+            self.WARNING.value: gettext("Warning"),
+            self.ERROR.value: gettext("Error"),
+            self.CRITICAL.value: gettext("Critical"),
+        }.get(self.value, self.value)
 
 
 class Config(BaseModel):

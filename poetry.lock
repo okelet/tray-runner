@@ -78,6 +78,17 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
+name = "croniter"
+version = "1.3.5"
+description = "croniter provides iteration for datetime object with cron like format"
+category = "main"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+
+[package.dependencies]
+python-dateutil = "*"
+
+[[package]]
 name = "dill"
 version = "0.3.5.1"
 description = "serialize all of python"
@@ -451,6 +462,14 @@ python-versions = "*"
 types-pytz = "*"
 
 [[package]]
+name = "types-croniter"
+version = "1.0.10"
+description = "Typing stubs for croniter"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "types-python-dateutil"
 version = "2.8.16"
 description = "Typing stubs for python-dateutil"
@@ -527,7 +546,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.10,<3.11"
-content-hash = "2045cdb8f63cd597c81961b8e2a1ae75a914ee199589b477f3308c321d52e930"
+content-hash = "1f505c9f9180278a13b275690829fe5152e82d2013d5e66defdcd5d1b126f35e"
 
 [metadata.files]
 altgraph = [
@@ -578,6 +597,10 @@ click = [
 colorama = [
     {file = "colorama-0.4.4-py2.py3-none-any.whl", hash = "sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2"},
     {file = "colorama-0.4.4.tar.gz", hash = "sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b"},
+]
+croniter = [
+    {file = "croniter-1.3.5-py2.py3-none-any.whl", hash = "sha256:4f72faca42c00beb6e30907f1315145f43dfbe5ec0ad4ada24b4c0d57b86a33a"},
+    {file = "croniter-1.3.5.tar.gz", hash = "sha256:7592fc0e8a00d82af98dfa2768b75983b6fb4c2adc8f6d0d7c931a715b7cefee"},
 ]
 dill = [
     {file = "dill-0.3.5.1-py2.py3-none-any.whl", hash = "sha256:33501d03270bbe410c72639b350e941882a8b0fd55357580fbc873fba0c59302"},
@@ -895,6 +918,10 @@ tomli = [
 types-babel = [
     {file = "types-babel-2.9.12.tar.gz", hash = "sha256:d43896f8bcbb3f026c4e2da891a817bcbf4a316f7bc1e86698c594a65917d928"},
     {file = "types_babel-2.9.12-py3-none-any.whl", hash = "sha256:0dc19c3d4a6546f1ff409db561edebba97e4a4ea6f95793895fa1ad89f34469b"},
+]
+types-croniter = [
+    {file = "types-croniter-1.0.10.tar.gz", hash = "sha256:10ae27340a37952b9ac67d7d2fc3bc9d4d88b6ae2c7b5a0b2c393b24d0a21ce0"},
+    {file = "types_croniter-1.0.10-py3-none-any.whl", hash = "sha256:3ae500135d4d6ccc5a4e54a4c9b971fcbe98b5f0970ee2987f7ad60e77b3f95f"},
 ]
 types-python-dateutil = [
     {file = "types-python-dateutil-2.8.16.tar.gz", hash = "sha256:3aaac4c138eb6b8ecbc2550996ec25d6e45b5d32887d1e693d0842ee2fa659d2"},
