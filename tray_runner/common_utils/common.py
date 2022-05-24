@@ -90,6 +90,8 @@ def create_app_menu_shortcut(name: str, command: str, args: Optional[str] = None
                     link.working_directory = work_dir
                 if icon and isinstance(icon, tuple):
                     link.icon_location = (icon[0], icon[1])
+                elif icon and isinstance(icon, str):
+                    link.icon_location = (icon, 0)
         except Exception as ex:  # pylint: disable=broad-except
             LOG.error("Error creating Windows Start Menu shortcut: %s", str(ex), exc_info=True)
 

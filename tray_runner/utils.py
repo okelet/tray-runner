@@ -14,7 +14,7 @@ from dateutil.tz import tzlocal
 import tray_runner
 from tray_runner.common_utils.common import create_app_menu_shortcut
 from tray_runner.constants import APP_NAME
-from tray_runner.gui.constants import ICON_PATH
+from tray_runner.gui.constants import ICON_PATH, ICON_PATH_ICO
 
 
 def resolve_app_exe_info() -> Tuple[str, Optional[str], Optional[str], Union[Optional[str], Tuple[str, int]]]:
@@ -42,7 +42,10 @@ def resolve_app_exe_info() -> Tuple[str, Optional[str], Optional[str], Union[Opt
                 exe = os.path.join(exe_dir, "pythonw.exe")
         args = "-m tray_runner.gui"
         work_dir = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(tray_runner.__file__)), ".."))
-        icon = ICON_PATH
+        if sys.platform == "win32":
+            icon = ICON_PATH_ICO
+        else:
+            icon = ICON_PATH
     return exe, args, work_dir, icon
 
 

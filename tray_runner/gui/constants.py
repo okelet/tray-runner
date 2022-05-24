@@ -5,6 +5,7 @@ import os
 
 MODULE_DIR = os.path.dirname(__file__)
 ICON_PATH = os.path.join(MODULE_DIR, "icons", "terminal-medium.png")
+ICON_PATH_ICO = os.path.join(MODULE_DIR, "icons", "terminal-medium.ico")
 
 REGULAR_ICON_PATH = ICON_PATH
 WARNING_ICON_PATH = os.path.join(MODULE_DIR, "icons", "terminal--exclamation.png")
