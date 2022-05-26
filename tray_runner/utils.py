@@ -5,11 +5,7 @@ import logging
 import os
 import shutil
 import sys
-from datetime import datetime, tzinfo
 from typing import Optional, Tuple, Union
-
-import pytz
-from dateutil.tz import tzlocal
 
 import tray_runner
 from tray_runner.common_utils.common import create_app_menu_shortcut
@@ -83,31 +79,3 @@ class PackagePathFilter(logging.Filter):  # pylint: disable=too-few-public-metho
                 record.relativepath = os.path.relpath(pathname, path)
                 break
         return True
-
-
-def get_local_datetime() -> datetime:
-    """
-    Returns a datetime object with the current system tzinfo set.
-    """
-    return datetime.now().replace(tzinfo=tzlocal())
-
-
-def get_utc_datetime() -> datetime:
-    """
-    Returns a datetime object with the UTC tzinfo set.
-    """
-    return datetime.utcnow().replace(tzinfo=pytz.UTC)
-
-
-def ensure_local_datetime(dt: datetime, default_tz: Optional[tzinfo] = None):
-    """
-    Ensures that the datetime object passed as parameter has the current system tzinfo set.
-
-    If the datetime doesn't have yet a time zone set, it is replaced with default_tz or UTC if empty.
-    """
-    if not dt.tzinfo:
-        if default_tz:
-            dt = dt.replace(tzinfo=default_tz)
-        else:
-            dt = dt.replace(tzinfo=pytz.UTC)
-    return dt.astimezone(tzlocal())

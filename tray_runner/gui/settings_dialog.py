@@ -47,6 +47,7 @@ class SettingsDialog(QDialog):
     add_command_button: QPushButton
     edit_command_button: QPushButton
     show_command_logs_button: QPushButton
+    run_now_button: QPushButton
     delete_command_button: QPushButton
 
     app_runs_label: QLabel
@@ -115,10 +116,12 @@ class SettingsDialog(QDialog):
         self.add_command_button.clicked.connect(self.add_command_button_clicked)
         self.edit_command_button.clicked.connect(self.edit_command_button_clicked)
         self.show_command_logs_button.clicked.connect(self.show_command_logs_button_clicked)
+        self.run_now_button.clicked.connect(self.run_now_button_clicked)
         self.delete_command_button.clicked.connect(self.delete_command_button_clicked)
 
         self.edit_command_button.setEnabled(False)
         self.show_command_logs_button.setEnabled(False)
+        self.run_now_button.setEnabled(False)
         self.delete_command_button.setEnabled(False)
 
         self.app_runs_label.setText(format_decimal(self.app.config.app_runs, locale=get_simple_default_locale()))
@@ -215,6 +218,12 @@ class SettingsDialog(QDialog):
         self.edit_command_button.setEnabled(bool(current))
         self.show_command_logs_button.setEnabled(bool(current))
         self.delete_command_button.setEnabled(bool(current))
+        if current:
+            command = self.app.config.get_command_by_name(current.text())
+            self.run_now_button.setEnabled(not command.disabled)
+        else:
+            self.delete_command_button.setEnabled(False)
+
 
     def commands_list_item_double_clicked(self, item: QListWidgetItem):
         """
@@ -282,6 +291,16 @@ class SettingsDialog(QDialog):
                 QMessageBox.warning(self, gettext("No logs available"), gettext("This command doesn't have generated logs yet."))
             else:
                 click.launch(log_path)
+
+    def run_now_button_clicked(self):
+        """
+        Function called when the show logs button is clicked.
+        """
+        selected_items = self.commands_list.selectedItems()
+        if selected_items:
+            command = self.app.config.get_command_by_name(selected_items[0].text())
+            if not command.disabled:
+                self.app.force_command_thread_run_now(command)
 
     def delete_command_button_clicked(self):
         """

@@ -7,10 +7,13 @@ import os
 import shlex
 import subprocess
 import sys
+from datetime import datetime, tzinfo
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import click
+import pytz
+from dateutil.tz import tzlocal
 from PySide6.QtCore import QThread
 from slugify import slugify
 
@@ -177,3 +180,31 @@ def get_simple_default_locale() -> str:
     if lang:
         return lang
     return "en_US"
+
+
+def get_local_datetime() -> datetime:
+    """
+    Returns a datetime object with the current system tzinfo set.
+    """
+    return datetime.now().replace(tzinfo=tzlocal())
+
+
+def get_utc_datetime() -> datetime:
+    """
+    Returns a datetime object with the UTC tzinfo set.
+    """
+    return datetime.utcnow().replace(tzinfo=pytz.UTC)
+
+
+def ensure_local_datetime(date_time: datetime, default_tz: Optional[tzinfo] = None):
+    """
+    Ensures that the datetime object passed as parameter has the current system tzinfo set.
+
+    If the datetime doesn't have yet a time zone set, it is replaced with default_tz or UTC if empty.
+    """
+    if not date_time.tzinfo:
+        if default_tz:
+            date_time = date_time.replace(tzinfo=default_tz)
+        else:
+            date_time = date_time.replace(tzinfo=pytz.UTC)
+    return date_time.astimezone(tzlocal())
