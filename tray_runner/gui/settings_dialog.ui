@@ -93,6 +93,13 @@
              </widget>
             </item>
             <item>
+             <widget class="QPushButton" name="run_now_button">
+              <property name="text">
+               <string>Run now</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QPushButton" name="delete_command_button">
               <property name="text">
                <string>Remove</string>

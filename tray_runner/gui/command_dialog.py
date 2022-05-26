@@ -3,6 +3,7 @@ tray_runner.gui.settings modules.
 """
 import os
 import uuid
+from datetime import datetime
 from gettext import gettext
 from typing import TYPE_CHECKING, Optional
 
@@ -11,13 +12,12 @@ from babel.numbers import format_decimal
 from croniter import croniter
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor, QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QTableView, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QTableView, QWidget, QTabWidget
 from slugify import slugify
 
-from tray_runner.common_utils.common import get_simple_default_locale
+from tray_runner.common_utils.common import ensure_local_datetime, get_simple_default_locale
 from tray_runner.common_utils.qt import checkbox_tristate_from_val, checkbox_tristate_to_val, load_ui
 from tray_runner.config import ConfigCommand, ConfigCommandEnvironmentVariable, ConfigCommandRunMode
-from tray_runner.utils import ensure_local_datetime
 
 if TYPE_CHECKING:
     from tray_runner.gui import TrayCmdRunnerApp
@@ -28,6 +28,8 @@ class CommandDialog(QDialog):
     CommandDialog class.
     """
 
+    tabs: QTabWidget
+
     id_text_box: QLineEdit
     name_text_box: QLineEdit
     description_text_box: QPlainTextEdit
@@ -37,6 +39,8 @@ class CommandDialog(QDialog):
     max_log_count_spin_box: QSpinBox
     disabled_checkbox: QCheckBox
 
+    run_at_startup_check_box: QCheckBox
+    run_at_startup_if_missing_previous_run_check_box: QCheckBox
     run_mode_combo_box: QComboBox
     seconds_between_executions_label: QLabel
     seconds_between_executions_spin_box: QSpinBox
@@ -53,6 +57,9 @@ class CommandDialog(QDialog):
 
     environment_table: QTableView
 
+    script_text_box: QPlainTextEdit
+    run_script_powershell_check_box: QCheckBox
+
     total_runs_label: QLabel
     ok_runs_label: QLabel
     error_runs_label: QLabel
@@ -66,7 +73,7 @@ class CommandDialog(QDialog):
     max_duration_label: QLabel
     avg_duration_label: QLabel
 
-    def __init__(self, parent: QWidget, app: "TrayCmdRunnerApp", command: ConfigCommand, is_new: Optional[bool] = False):  # pylint: disable=too-many-statements
+    def __init__(self, parent: QWidget, app: "TrayCmdRunnerApp", command: ConfigCommand, is_new: Optional[bool] = False):  # pylint: disable=too-many-statements,too-many-branches
         """
         CommandDialog constructor.
         """
@@ -87,13 +94,18 @@ class CommandDialog(QDialog):
         self.name_text_box.setText(self.command.name)
         if self.command.description:
             self.description_text_box.setPlainText(self.command.description)
-        self.command_text_box.setText(self.command.command)
-        self.command_text_box.setText(self.command.command)
+        if self.command.command:
+            self.command_text_box.setText(self.command.command)
+        if self.command.script:
+            self.script_text_box.setPlainText(self.command.script)
+        self.run_script_powershell_check_box.setChecked(self.command.run_script_powershell)
         self.working_directory_text_box.setText(self.command.working_directory)
         self.working_directory_choose_button.clicked.connect(self.working_directory_choose_button_clicked)
         self.max_log_count_spin_box.setValue(self.command.max_log_count)
         self.disabled_checkbox.setChecked(self.command.disabled)
 
+        self.run_at_startup_check_box.setChecked(self.command.run_at_startup)
+        self.run_at_startup_if_missing_previous_run_check_box.setChecked(self.command.run_at_startup_if_missing_previous_run)
         self.run_mode_combo_box.currentIndexChanged.connect(self.on_run_mode_combo_box_currentIndexChanged)
         for idx, data in enumerate(ConfigCommandRunMode):
             self.run_mode_combo_box.addItem(data.display_name(), data.value)
@@ -128,7 +140,9 @@ class CommandDialog(QDialog):
         self.error_runs_label.setText(format_decimal(self.command.error_runs, locale=get_simple_default_locale()))
         self.failed_runs_label.setText(format_decimal(self.command.failed_runs, locale=get_simple_default_locale()))
         self.last_run_dt_label.setText(format_datetime(ensure_local_datetime(self.command.last_run_dt), locale=get_simple_default_locale()) if self.command.last_run_dt else gettext("Never"))
-        if self.command.disabled:
+        if self.is_new:
+            self.next_run_dt_label.setText(gettext("Unknown"))
+        elif self.command.disabled:
             self.next_run_dt_label.setText(gettext("Never (command disabled)"))
         else:
             next_run_dt = self.command.get_next_execution_dt()
@@ -212,11 +226,13 @@ class CommandDialog(QDialog):
             if id_val:
                 if slugify(id_val) != id_val:
                     QMessageBox.warning(self, gettext("Validation error"), gettext("The ID is not valid (can only contain lowercase numbers and letters, and hyphens)."))
+                    self.tabs.setCurrentIndex(0)
                     self.id_text_box.setFocus()
                     return
                 for command in self.app.config.commands:
                     if slugify(command.id) == slugify(id_val):
                         QMessageBox.warning(self, gettext("Validation error"), gettext("There is another command with the same ID."))
+                        self.tabs.setCurrentIndex(0)
                         self.id_text_box.setFocus()
                         return
                 new_id_val = id_val
@@ -226,6 +242,7 @@ class CommandDialog(QDialog):
         # Check non-empty name
         if not self.name_text_box.text():
             QMessageBox.warning(self, gettext("Validation error"), gettext("Name can't be empty."))
+            self.tabs.setCurrentIndex(0)
             self.name_text_box.setFocus()
             return
 
@@ -235,12 +252,21 @@ class CommandDialog(QDialog):
             if loop_command != self.command:
                 if loop_command.name.lower() == new_name.lower():
                     QMessageBox.warning(self, gettext("Validation error"), gettext("There is another command with the same name."))
+                    self.tabs.setCurrentIndex(0)
                     self.name_text_box.setFocus()
                     return
 
-        # Check non-empty command
-        if not self.command_text_box.text():
-            QMessageBox.warning(self, gettext("Validation error"), gettext("Command can't be empty."))
+        command = self.command_text_box.text()
+        script = self.script_text_box.toPlainText()
+        if command and script:
+            QMessageBox.warning(self, gettext("Validation error"), gettext("Only the command or the script can be set."))
+            self.tabs.setCurrentIndex(0)
+            self.command_text_box.setFocus()
+            return
+
+        if not command and not script:
+            QMessageBox.warning(self, gettext("Validation error"), gettext("Command or script must be set."))
+            self.tabs.setCurrentIndex(0)
             self.command_text_box.setFocus()
             return
 
@@ -258,10 +284,12 @@ class CommandDialog(QDialog):
         if run_mode == ConfigCommandRunMode.CRON:
             if not cron_expr:
                 QMessageBox.warning(self, gettext("Validation error"), gettext("The cron expression can't be empty."))
+                self.tabs.setCurrentIndex(0)
                 self.cron_expr_text_box.setFocus()
                 return
             if not croniter.is_valid(cron_expr):
                 QMessageBox.warning(self, gettext("Validation error"), gettext("The cron expression is not valid."))
+                self.tabs.setCurrentIndex(0)
                 self.cron_expr_text_box.setFocus()
                 return
 
@@ -281,14 +309,21 @@ class CommandDialog(QDialog):
             self.command.id = new_id_val
         self.command.name = new_name
         self.command.description = self.description_text_box.toPlainText().strip() if self.description_text_box.toPlainText().strip() else None
-        self.command.command = self.command_text_box.text()
+        if command:
+            self.command.command = command
+        if script:
+            self.command.script = script
+        self.command.run_script_powershell = self.run_script_powershell_check_box.isChecked()
         self.command.working_directory = working_directory
         self.command.max_log_count = self.max_log_count_spin_box.value()
         self.command.disabled = self.disabled_checkbox.isChecked()
 
+        self.command.run_at_startup = self.run_at_startup_check_box.isChecked()
+        self.command.run_at_startup_if_missing_previous_run = self.run_at_startup_if_missing_previous_run_check_box.isChecked()
         self.command.run_mode = run_mode
         self.command.seconds_between_executions = period
         self.command.cron_expr = cron_expr
+        self.command.next_run_dt = self.command.get_next_execution_dt()
 
         self.command.run_in_shell = checkbox_tristate_to_val(self.run_in_shell_checkbox.checkState())
         self.command.restart_on_exit = checkbox_tristate_to_val(self.restart_on_exit_checkbox.checkState())

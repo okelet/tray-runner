@@ -1,11 +1,14 @@
 """
 tray_runner.gui module
 """
+import itertools
 import logging
 import os.path
 import signal
+import stat
 import sys
 import tempfile
+import time
 import webbrowser
 from datetime import datetime, timedelta
 from functools import partial
@@ -14,8 +17,6 @@ from logging.handlers import RotatingFileHandler
 from typing import List, Optional
 
 import click
-from croniter import croniter
-from dateutil.relativedelta import relativedelta
 from PySide6.QtCore import QLockFile, QThread, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QMessageBox, QSystemTrayIcon
@@ -48,10 +49,12 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
     notification_signal = Signal(str, str)
     update_menu_signal = Signal()
 
-    def __init__(self, app: "TrayCmdRunnerApp", command: ConfigCommand) -> None:
+    def __init__(self, app: "TrayCmdRunnerApp", command: ConfigCommand, is_startup: Optional[bool] = False) -> None:
         QThread.__init__(self)
         self.app = app
         self.command = command
+        self.is_startup = is_startup
+        self.force_run = False
         self.update_menu_signal.connect(self.app.update_status)  # type: ignore[attr-defined]
         self.notification_signal.connect(self.app.show_notification)  # type: ignore[attr-defined]
 
@@ -60,139 +63,220 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
         Overridden method from parent class, implementing the logic of the thread.
         """
 
-        while True:
+        first_loop = True
+        while True:  # pylint: disable=too-many-nested-blocks
 
             if self.isInterruptionRequested():
                 break
 
-            if datetime.utcnow() < self.command.get_next_execution_dt():
+            now = datetime.utcnow()
+
+            next_run_dt = self.command.next_run_dt
+            next_run_past = False
+            if not next_run_dt:
+                next_run_dt = self.command.get_next_execution_dt()
+                self.command.next_run_dt = next_run_dt
+                self.app.save_config()
+                LOG.debug("Command %s - %s: empty next_run_dt; generated new one: %s.", self.command.name, self.command.command, self.command.next_run_dt)
+
+            if (now - timedelta(seconds=10)) > next_run_dt:
+                # Compare with now -10 seconds to allow the loop to check this date
+                old_next_run_dt = next_run_dt
+                next_run_past = True
+                if self.command.run_mode == ConfigCommandRunMode.PERIOD:
+                    next_run_dt = datetime.utcnow()
+                elif self.command.run_mode == ConfigCommandRunMode.CRON:
+                    next_run_dt = self.command.get_next_execution_dt(start_date=now)
+                else:
+                    LOG.critical("Command %s: run_mode not supported (%s).", self.command.name, self.command.run_mode.value)
+                self.command.next_run_dt = next_run_dt
+                self.app.save_config()
+                LOG.debug("Command %s - %s: next_run_dt was in the past (%s, now is %s); generated new one: %s.", self.command.name, self.command.command, old_next_run_dt, now, self.command.next_run_dt)
+
+            run_now = False
+            if first_loop:
+                first_loop = False
+                if self.is_startup:
+                    self.is_startup = False
+                    if self.command.run_at_startup:
+                        LOG.info("Command %s - %s: forcing to run the command because run_at_startup is true.", self.command.name, self.command.command)
+                        run_now = True
+                    elif self.command.run_at_startup_if_missing_previous_run and next_run_past:
+                        LOG.info("Command %s - %s: forcing to run the command because run_at_startup_if_missing_previous_run is true and the next_run_dt was before now.", self.command.name, self.command.command)
+                        run_now = True
+            else:
+                if now >= next_run_dt:
+                    LOG.info("Command %s - %s: running command because the next_run_dt has come (%s, now is %s).", self.command.name, self.command.command, next_run_dt, now)
+                    run_now = True
+
+            if self.force_run:
+                LOG.info("Command %s - %s: running command because force_run has been set.", self.command.name, self.command.command)
+                self.force_run = False
+                run_now = True
+
+            if not run_now:
                 QThread.sleep(1)
                 continue
 
-            include_output_in_notifications = coalesce(self.command.include_output_in_notifications, self.app.config.include_output_in_notifications)
-            show_complete_notifications = coalesce(self.command.show_complete_notifications, self.app.config.show_complete_notifications)
-            show_error_notifications = coalesce(self.command.show_error_notifications, self.app.config.show_error_notifications)
-
-            run_in_shell = coalesce(self.command.run_in_shell, self.app.config.run_in_shell)
-            restart_on_failure = coalesce(self.command.restart_on_failure, self.app.config.restart_on_failure)
-            restart_on_exit = coalesce(self.command.restart_on_exit, self.app.config.restart_on_exit)
-
-            working_directory = self.command.working_directory
-            if not os.path.exists(working_directory):
-                working_directory = os.path.expanduser("~")
-
-            LOG.info("Executing command %s - %s...", self.command.name, self.command.command)
-            start_time = datetime.utcnow()
-            self.command.total_runs += 1
-            self.command.last_run_dt = start_time
-            exit_code = None
-            error_message = None
-            elapsed_time = None
-            aborted = False
-            stdout = None
-            stderr = None
+            script_path = None
             try:
-                pid, exit_code, stdout, stderr = run_command(self.command.command, environ=self.command.environment_as_dict(), run_in_shell=run_in_shell, working_directory=working_directory, thread=self)
-                end_time = datetime.utcnow()
-                elapsed_time = (end_time - start_time).total_seconds()
-                LOG.debug("Command %s - %s exited with code %s (took %s seconds).", self.command.name, self.command.command, exit_code, f"{elapsed_time:.2f}")
-                self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, pid=pid, exit_code=exit_code, stdout=stdout, stderr=stderr))
-                self.command.last_run_error_message = None
-                self.command.last_run_exit_code = exit_code
-                if exit_code == 0:
-                    self.command.last_successful_run_dt = start_time
-                    self.command.last_duration = elapsed_time
-                    if self.command.max_duration is None or elapsed_time > self.command.max_duration:
-                        self.command.max_duration = elapsed_time
-                    if self.command.min_duration is None or elapsed_time < self.command.min_duration:
-                        self.command.min_duration = elapsed_time
-                    if self.command.avg_duration is not None:
-                        self.command.avg_duration = ((self.command.avg_duration * self.command.ok_runs) + elapsed_time) / (self.command.ok_runs + 1)
+
+                include_output_in_notifications = coalesce(self.command.include_output_in_notifications, self.app.config.include_output_in_notifications)
+                show_complete_notifications = coalesce(self.command.show_complete_notifications, self.app.config.show_complete_notifications)
+                show_error_notifications = coalesce(self.command.show_error_notifications, self.app.config.show_error_notifications)
+
+                run_in_shell = coalesce(self.command.run_in_shell, self.app.config.run_in_shell)
+                restart_on_failure = coalesce(self.command.restart_on_failure, self.app.config.restart_on_failure)
+                restart_on_exit = coalesce(self.command.restart_on_exit, self.app.config.restart_on_exit)
+
+                working_directory = self.command.working_directory
+                if not working_directory or not os.path.exists(working_directory):
+                    working_directory = os.path.expanduser("~")
+
+                cmd = None
+                if self.command.command:
+                    cmd = self.command.command
+                elif self.command.script:
+                    run_in_shell = False
+                    if sys.platform == "win32":
+                        if self.command.run_script_powershell:
+                            fd, script_path = tempfile.mkstemp(suffix=".ps1", text=True)
+                        else:
+                            fd, script_path = tempfile.mkstemp(suffix=".cmd", text=True)
                     else:
-                        self.command.avg_duration = elapsed_time
-                    self.command.ok_runs += 1
+                        fd, script_path = tempfile.mkstemp(text=True)
+                        st = os.stat(script_path)
+                        os.chmod(script_path, st.st_mode | stat.S_IEXEC)
+                    with os.fdopen(fd, "w") as script_file:
+                        if sys.platform != "win32" and not self.command.script.startswith("#!"):
+                            script_file.write("#!/bin/sh\n")
+                        script_file.write(self.command.script)
+                    cmd = script_path
+                    LOG.debug("Command %s: generated file for script: %s", self.command.name, script_path)
                 else:
-                    self.command.error_runs += 1
-            except CommandAborted:
-                # This happens when the command runner thread has been signaled to stop (because the program is being closed).
-                # So we don't want to generate alerts/notifications when this happens, as this is because the user has initiated the action.
-                end_time = datetime.utcnow()
-                elapsed_time = (end_time - start_time).total_seconds()
-                error_message = "Command aborted"
-                aborted = True
-                LOG.warning("Command %s - %s aborted.", self.command.name, self.command.command)
-                self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, aborted=True))
+                    LOG.critical("Command %s: no command or script set.", self.command.name)
+
+                if cmd:
+
+                    LOG.info("Executing command %s - %s...", self.command.name, self.command.command)
+                    start_time = now
+                    self.command.total_runs += 1
+                    self.command.last_run_dt = start_time
+                    exit_code = None
+                    error_message = None
+                    elapsed_time = None
+                    aborted = False
+                    stdout = None
+                    stderr = None
+                    try:
+                        pid, exit_code, stdout, stderr = run_command(cmd, environ=self.command.environment_as_dict(), run_in_shell=run_in_shell, working_directory=working_directory, thread=self)
+                        end_time = datetime.utcnow()
+                        elapsed_time = (end_time - start_time).total_seconds()
+                        LOG.debug("Command %s - %s exited with code %s (took %s seconds).", self.command.name, self.command.command, exit_code, f"{elapsed_time:.2f}")
+                        self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, pid=pid, exit_code=exit_code, stdout=stdout, stderr=stderr))
+                        self.command.last_run_error_message = None
+                        self.command.last_run_exit_code = exit_code
+                        if exit_code == 0:
+                            self.command.last_successful_run_dt = start_time
+                            self.command.last_duration = elapsed_time
+                            if self.command.max_duration is None or elapsed_time > self.command.max_duration:
+                                self.command.max_duration = elapsed_time
+                            if self.command.min_duration is None or elapsed_time < self.command.min_duration:
+                                self.command.min_duration = elapsed_time
+                            if self.command.avg_duration is not None:
+                                self.command.avg_duration = ((self.command.avg_duration * self.command.ok_runs) + elapsed_time) / (self.command.ok_runs + 1)
+                            else:
+                                self.command.avg_duration = elapsed_time
+                            self.command.ok_runs += 1
+                        else:
+                            self.command.error_runs += 1
+                    except CommandAborted:
+                        # This happens when the command runner thread has been signaled to stop (because the program is being closed).
+                        # So we don't want to generate alerts/notifications when this happens, as this is because the user has initiated the action.
+                        end_time = datetime.utcnow()
+                        elapsed_time = (end_time - start_time).total_seconds()
+                        error_message = "Command aborted"
+                        aborted = True
+                        LOG.warning("Command %s - %s aborted.", self.command.name, self.command.command)
+                        self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, aborted=True))
+                    except Exception as ex:  # pylint: disable=broad-except
+                        end_time = datetime.utcnow()
+                        elapsed_time = (end_time - start_time).total_seconds()
+                        error_message = str(ex)
+                        LOG.warning("Error running command %s - %s : %s.", self.command.name, self.command.command, error_message, exc_info=True)
+                        self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, error_message=error_message))
+                        self.command.failed_runs += 1
+                        self.command.last_run_error_message = error_message
+                        self.command.last_run_exit_code = None
+
+                    # Save command run statistics
+                    self.command.next_run_dt = self.command.get_next_execution_dt()
+                    self.app.save_config()
+
+                    # Update statuses
+                    self.update_menu_signal.emit()
+
+                    if aborted:
+                        break
+
+                    if exit_code is None:
+                        # Failed to run
+                        if not restart_on_failure:
+                            if show_error_notifications:
+                                self.notification_signal.emit(self.command.name, gettext("Command failed to run ({error_message}).").format(error_message=error_message))
+                            break
+                        if show_error_notifications:
+                            self.notification_signal.emit(self.command.name, gettext("Command failed to run ({error_message}); restarting after {seconds_between_executions} seconds...").format(error_message=error_message, seconds_between_executions=self.command.seconds_between_executions))
+                    elif exit_code:
+                        # Exited with code > 0
+                        if not restart_on_failure:
+                            if show_error_notifications:
+                                if include_output_in_notifications and stdout and stderr:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout, stderr=stderr))
+                                elif include_output_in_notifications and stdout:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout))
+                                elif include_output_in_notifications and stderr:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stderr=stderr))
+                                else:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).").format(exit_code=exit_code, elapsed_time=elapsed_time))
+                            break
+                        if show_error_notifications:
+                            if include_output_in_notifications and stdout and stderr:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout, stderr=stderr))
+                            elif include_output_in_notifications and stdout:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout))
+                            elif include_output_in_notifications and stderr:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stderr=stderr))
+                            else:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions))
+                    else:
+                        # Exited with code = 0
+                        if not restart_on_exit:
+                            if show_complete_notifications:
+                                if include_output_in_notifications and stdout and stderr:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout, stderr=stderr))
+                                elif include_output_in_notifications and stdout:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout))
+                                elif include_output_in_notifications and stderr:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stderr=stderr))
+                                else:
+                                    self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).").format(exit_code=exit_code, elapsed_time=elapsed_time))
+                            break
+                        if show_complete_notifications:
+                            if include_output_in_notifications and stdout and stderr:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout, stderr=stderr))
+                            elif include_output_in_notifications and stdout:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout))
+                            elif include_output_in_notifications and stderr:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stderr=stderr))
+                            else:
+                                self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions))
+
             except Exception as ex:  # pylint: disable=broad-except
-                end_time = datetime.utcnow()
-                elapsed_time = (end_time - start_time).total_seconds()
-                error_message = str(ex)
-                LOG.warning("Error running command %s - %s : %s.", self.command.name, self.command.command, error_message)
-                self.command.add_log(ConfigCommandLogItem(start_time=start_time, end_time=end_time, duration=elapsed_time, error_message=error_message))
-                self.command.failed_runs += 1
-                self.command.last_run_error_message = error_message
-                self.command.last_run_exit_code = None
-
-            # Save command run statistics
-            self.app.save_config()
-
-            # Update statuses
-            self.update_menu_signal.emit()
-
-            if aborted:
-                break
-
-            if exit_code is None:
-                # Failed to run
-                if not restart_on_failure:
-                    if show_error_notifications:
-                        self.notification_signal.emit(self.command.name, gettext("Command failed to run ({error_message}).").format(error_message=error_message))
-                    break
-                if show_error_notifications:
-                    self.notification_signal.emit(self.command.name, gettext("Command failed to run ({error_message}); restarting after {seconds_between_executions} seconds...").format(error_message=error_message, seconds_between_executions=self.command.seconds_between_executions))
-            elif exit_code:
-                # Exited with code > 0
-                if not restart_on_failure:
-                    if show_error_notifications:
-                        if include_output_in_notifications and stdout and stderr:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout, stderr=stderr))
-                        elif include_output_in_notifications and stdout:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout))
-                        elif include_output_in_notifications and stderr:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stderr=stderr))
-                        else:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).").format(exit_code=exit_code, elapsed_time=elapsed_time))
-                    break
-                if show_error_notifications:
-                    if include_output_in_notifications and stdout and stderr:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout, stderr=stderr))
-                    elif include_output_in_notifications and stdout:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout))
-                    elif include_output_in_notifications and stderr:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stderr=stderr))
-                    else:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions))
-            else:
-                # Exited with code = 0
-                if not restart_on_exit:
-                    if show_complete_notifications:
-                        if include_output_in_notifications and stdout and stderr:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout, stderr=stderr))
-                        elif include_output_in_notifications and stdout:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, stdout=stdout))
-                        elif include_output_in_notifications and stderr:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, stderr=stderr))
-                        else:
-                            self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds).").format(exit_code=exit_code, elapsed_time=elapsed_time))
-                    break
-                if show_complete_notifications:
-                    if include_output_in_notifications and stdout and stderr:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout, stderr=stderr))
-                    elif include_output_in_notifications and stdout:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nStandard output: {stdout}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stdout=stdout))
-                    elif include_output_in_notifications and stderr:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...\n\nError output: {stderr}").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions, stderr=stderr))
-                    else:
-                        self.notification_signal.emit(self.command.name, gettext("Command exited with code {exit_code} (took {elapsed_time:.2f} seconds); restarting after {seconds_between_executions} seconds...").format(exit_code=exit_code, elapsed_time=elapsed_time, seconds_between_executions=self.command.seconds_between_executions))
+                LOG.error("Error during command execution: %s.", str(ex), exc_info=True)
+            finally:
+                if script_path and os.path.exists(script_path):
+                    os.remove(script_path)
 
 
 class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
@@ -247,7 +331,7 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
         # Init command threads
         for command in self.config.commands:
             if not command.disabled:
-                command_thread = CommandThread(self, command)
+                command_thread = CommandThread(self, command, is_startup=True)
                 command_thread.start()
                 self.command_threads.append(command_thread)
         LOG.info("Current number of threads running: %s", len(self.command_threads))
@@ -355,6 +439,19 @@ class TrayCmdRunnerApp:  # pylint: disable=too-many-instance-attributes
         else:
             LOG.debug("Command %s - %s NOT found; perhaps it was disabled or not running before.", command.name, command.command)
         LOG.info("Current number of threads running: %s", len(self.command_threads))
+
+    def force_command_thread_run_now(self, command: ConfigCommand):
+        """
+        Finds and stops the thread associated with the command.
+        """
+        LOG.debug("Searching for command %s - %s to force run...", command.name, command.command)
+        for i in self.command_threads:
+            if i.command == command:
+                LOG.debug("Command %s - %s found; setting force_run...", command.name, command.command)
+                i.force_run = True
+                break
+        else:
+            LOG.debug("Command %s - %s NOT found; perhaps it was disabled or not running before.", command.name, command.command)
 
     def get_command_thread(self, command: ConfigCommand) -> Optional[CommandThread]:
         """

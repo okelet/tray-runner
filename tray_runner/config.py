@@ -13,13 +13,11 @@ from typing import Dict, List, Optional
 import click
 import pytz
 from croniter import croniter
-from dateutil.relativedelta import relativedelta
-from dateutil.tz import tzlocal
 from pydantic import BaseModel, Field
 from slugify import slugify
 
 from tray_runner import APP_DIR, DEFAULT_CONFIG_FILE
-from tray_runner.utils import ensure_local_datetime
+from tray_runner.common_utils.common import ensure_local_datetime
 
 LOG = logging.getLogger(__name__)
 
@@ -83,15 +81,19 @@ class ConfigCommand(BaseModel):
 
     id: str = Field()
     name: str = Field()
-    command: str = Field()
+    command: Optional[str] = Field()
+    script: Optional[str] = Field()
+    run_script_powershell: bool = Field(default=False)
     working_directory: str = Field(default=os.path.expanduser("~"))
     environment: List[ConfigCommandEnvironmentVariable] = Field(default=[])
     description: Optional[str]
     disabled: bool = Field(default=False)
     max_log_count: int = Field(default=100)
 
+    run_at_startup: bool = Field(default=False)
+    run_at_startup_if_missing_previous_run: bool = Field(default=False)
     run_mode: ConfigCommandRunMode = Field(default=ConfigCommandRunMode.PERIOD)
-    seconds_between_executions: int = Field(default=30)
+    seconds_between_executions: int = Field(default=600)
     cron_expr: Optional[str]
 
     run_in_shell: Optional[bool]
@@ -108,6 +110,7 @@ class ConfigCommand(BaseModel):
     failed_runs: int = Field(default=0, description="When a run threw an error.")
 
     last_run_dt: Optional[datetime]
+    next_run_dt: Optional[datetime]
     last_run_exit_code: Optional[int]
     last_run_error_message: Optional[str]
 
@@ -118,28 +121,34 @@ class ConfigCommand(BaseModel):
     max_duration: Optional[float]
     avg_duration: Optional[float]
 
-    def get_next_execution_dt(self) -> Optional[datetime]:
+    def get_next_execution_dt(self, start_date: Optional[datetime] = None) -> Optional[datetime]:
         """
         Get the command's next execution date/time, according to its status and run mode.
         """
+        now = datetime.utcnow()
+        if start_date is None:
+            start_date = self.last_run_dt
         if self.disabled:
             return None
         if self.run_mode == ConfigCommandRunMode.PERIOD:
-            if self.last_run_dt:
-                return self.last_run_dt + timedelta(seconds=self.seconds_between_executions)
-            return datetime.utcnow() - relativedelta(years=1)
+            if start_date is None:
+                return now
+            dt = start_date + timedelta(seconds=self.seconds_between_executions)
+            while dt < now:
+                # Find a moment in the future
+                dt = dt + timedelta(seconds=self.seconds_between_executions)
+            return dt
         if self.run_mode == ConfigCommandRunMode.CRON:
             # Get the next cron schedule based on the system timezone (offset-aware)
             # But return it as UTC, removing the timezone info (offset-naive) so it can be compared using datetime.utcnow()
             if self.cron_expr:
-                if self.last_run_dt:
-                    return croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(self.last_run_dt)).astimezone(pytz.UTC).replace(tzinfo=None)
-                # When the command has not run yet, we have to simulate a past moment (10 seconds ago)
-                # because if we use datetime.utcnow() and later compare with current datetime, the comparison will never match.
-                # if datetime.utcnow() < self.command.get_next_execution_dt():
-                #     QThread.sleep(1)
-                #     continue
-                return croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(datetime.utcnow() - relativedelta(seconds=10))).astimezone(pytz.UTC).replace(tzinfo=None)
+                if start_date is None:
+                    start_date = now
+                dt = croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(start_date)).astimezone(pytz.UTC).replace(tzinfo=None)
+                while dt < now:
+                    # Find a moment in the future
+                    dt = croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(dt)).astimezone(pytz.UTC).replace(tzinfo=None)
+                return dt
             raise Exception(f"Command run mode is {self.run_mode.value}, but no cron_expr set.")
         raise Exception(f"Invalid run mode: {self.run_mode}.")
 
