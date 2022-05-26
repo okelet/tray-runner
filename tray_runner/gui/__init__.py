@@ -140,18 +140,22 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
                     run_in_shell = False
                     if sys.platform == "win32":
                         if self.command.run_script_powershell:
-                            fd, script_path = tempfile.mkstemp(suffix=".ps1", text=True)
+                            file_descriptor, script_path = tempfile.mkstemp(suffix=".ps1", text=True)
+                            # https://github.com/PowerShell/PowerShell/issues/3028
+                            cmd = ["PowerShell.exe", "-WindowStyle", "hidden", "-NoLogo", "-NonInteractive", "-File", script_path]
                         else:
-                            fd, script_path = tempfile.mkstemp(suffix=".cmd", text=True)
+                            file_descriptor, script_path = tempfile.mkstemp(suffix=".bat", text=True)
+                            cmd = ["cmd", "/c", script_path]
                     else:
-                        fd, script_path = tempfile.mkstemp(text=True)
-                        st = os.stat(script_path)
-                        os.chmod(script_path, st.st_mode | stat.S_IEXEC)
-                    with os.fdopen(fd, "w") as script_file:
+                        file_descriptor, script_path = tempfile.mkstemp(text=True)
+                        file_stat = os.stat(script_path)
+                        os.chmod(script_path, file_stat.st_mode | stat.S_IEXEC)
+                        cmd = script_path
+                    with os.fdopen(file_descriptor, "w") as script_file:
                         if sys.platform != "win32" and not self.command.script.startswith("#!"):
+                            # Add shebang if not present and not Windows
                             script_file.write("#!/bin/sh\n")
                         script_file.write(self.command.script)
-                    cmd = script_path
                     LOG.debug("Command %s: generated file for script: %s", self.command.name, script_path)
                 else:
                     LOG.critical("Command %s: no command or script set.", self.command.name)
@@ -169,7 +173,7 @@ class CommandThread(QThread):  # pylint: disable=too-few-public-methods
                     stdout = None
                     stderr = None
                     try:
-                        pid, exit_code, stdout, stderr = run_command(cmd, environ=self.command.environment_as_dict(), run_in_shell=run_in_shell, working_directory=working_directory, thread=self)
+                        pid, exit_code, stdout, stderr = run_command(command=cmd, environ=self.command.environment_as_dict(), run_in_shell=run_in_shell, working_directory=working_directory, thread=self)
                         end_time = datetime.utcnow()
                         elapsed_time = (end_time - start_time).total_seconds()
                         LOG.debug("Command %s - %s exited with code %s (took %s seconds).", self.command.name, self.command.command, exit_code, f"{elapsed_time:.2f}")

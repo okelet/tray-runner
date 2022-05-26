@@ -133,22 +133,22 @@ class ConfigCommand(BaseModel):
         if self.run_mode == ConfigCommandRunMode.PERIOD:
             if start_date is None:
                 return now
-            dt = start_date + timedelta(seconds=self.seconds_between_executions)
-            while dt < now:
+            next_dt = start_date + timedelta(seconds=self.seconds_between_executions)
+            while next_dt < now:
                 # Find a moment in the future
-                dt = dt + timedelta(seconds=self.seconds_between_executions)
-            return dt
+                next_dt = next_dt + timedelta(seconds=self.seconds_between_executions)
+            return next_dt
         if self.run_mode == ConfigCommandRunMode.CRON:
             # Get the next cron schedule based on the system timezone (offset-aware)
             # But return it as UTC, removing the timezone info (offset-naive) so it can be compared using datetime.utcnow()
             if self.cron_expr:
                 if start_date is None:
                     start_date = now
-                dt = croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(start_date)).astimezone(pytz.UTC).replace(tzinfo=None)
-                while dt < now:
+                next_dt = croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(start_date)).astimezone(pytz.UTC).replace(tzinfo=None)
+                while next_dt < now:
                     # Find a moment in the future
-                    dt = croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(dt)).astimezone(pytz.UTC).replace(tzinfo=None)
-                return dt
+                    next_dt = croniter(self.cron_expr).get_next(ret_type=datetime, start_time=ensure_local_datetime(next_dt)).astimezone(pytz.UTC).replace(tzinfo=None)
+                return next_dt
             raise Exception(f"Command run mode is {self.run_mode.value}, but no cron_expr set.")
         raise Exception(f"Invalid run mode: {self.run_mode}.")
 

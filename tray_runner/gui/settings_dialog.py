@@ -220,10 +220,12 @@ class SettingsDialog(QDialog):
         self.delete_command_button.setEnabled(bool(current))
         if current:
             command = self.app.config.get_command_by_name(current.text())
-            self.run_now_button.setEnabled(not command.disabled)
+            if command:
+                self.run_now_button.setEnabled(not command.disabled)
+            else:
+                self.run_now_button.setEnabled(False)
         else:
             self.delete_command_button.setEnabled(False)
-
 
     def commands_list_item_double_clicked(self, item: QListWidgetItem):
         """

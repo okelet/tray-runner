@@ -3,7 +3,6 @@ tray_runner.gui.settings modules.
 """
 import os
 import uuid
-from datetime import datetime
 from gettext import gettext
 from typing import TYPE_CHECKING, Optional
 
@@ -12,7 +11,7 @@ from babel.numbers import format_decimal
 from croniter import croniter
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor, QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QTableView, QWidget, QTabWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QFileDialog, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox, QTableView, QTabWidget, QWidget
 from slugify import slugify
 
 from tray_runner.common_utils.common import ensure_local_datetime, get_simple_default_locale

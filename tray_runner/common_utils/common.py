@@ -26,7 +26,7 @@ class CommandAborted(Exception):
     """
 
 
-def run_command(command: str, environ: Optional[Dict[str, str]] = None, run_in_shell: Optional[bool] = True, working_directory: Optional[str] = None, thread: Optional[QThread] = None, poll_period_ms: Optional[int] = None) -> Tuple[int, int, Optional[str], Optional[str]]:  # pylint: disable=too-many-arguments
+def run_command(command: Union[str, List[str]], environ: Optional[Dict[str, str]] = None, run_in_shell: Optional[bool] = True, working_directory: Optional[str] = None, thread: Optional[QThread] = None, poll_period_ms: Optional[int] = None) -> Tuple[int, int, Optional[str], Optional[str]]:  # pylint: disable=too-many-arguments
     """
     Runs a command using Powershell in Windows, or the current shell in Linux.
 
@@ -39,9 +39,15 @@ def run_command(command: str, environ: Optional[Dict[str, str]] = None, run_in_s
         run_in_shell = False
     if run_in_shell:
         # When running using a shell, we don't have to split the command
-        cmd = command
+        if isinstance(command, str):
+            cmd = command
+        elif isinstance(command, list):
+            cmd = shlex.join(command)
     else:
-        cmd = shlex.split(command)
+        if isinstance(command, str):
+            cmd = shlex.split(command)
+        elif isinstance(command, list):
+            cmd = command
 
     new_env = os.environ.copy()
     if environ:

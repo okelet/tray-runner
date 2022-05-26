@@ -4,6 +4,7 @@
         "levelname",
         "NOTSET",
         "pydantic",
+        "pytz",
         "relativepath",
         "winshell"
     ]
