@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% from 'bootstrap4/utils.html' import render_icon %}
+
+{% block body %}
+
+  <p>{% trans %}Welcome! This is the summary page of the application.{% endtrans %}</p>
+
+  {% if all_commands | length > 0 %}
+
+    <p>{{ render_icon("play") }} {{ _("Running jobs") }}: {{ running_jobs | length | numberformat }}</p>
+    {% if running_jobs %}
+      <ul>
+      {% for job in running_jobs %}
+        <li><a href="{{ url_for("commands_show", command_id=job.command.id) }}">{{ job.command.name }}</a></li>
+      {% endfor %}
+      </ul>
+      {% endif %}
+    <p>{{ render_icon("window") }} Application runs: {{ total_runs | numberformat }}</p>
+    <p>{{ render_icon("back") }} Command runs: {{ command_runs | numberformat }}</p>
+    {% if commands_with_errors %}
+      {% if commands_with_errors | length == 1 %}
+        <p>{{ render_icon("exclamation-triangle") }} Commands with errors (1): <a href="{{ url_for("commands_show", command_id=commands_with_errors[0].id) }}">{{ commands_with_errors[0].name }}</a></p>
+      {% else %}
+        <p>{{ render_icon("exclamation-triangle") }} Commands with errors ({{ commands_with_errors | length | numberformat }}):</p>
+        <ul>
+          {% for command in commands_with_errors %}
+            <li><a href="{{ url_for("commands_show", command_id=command.id) }}">{{ command.name }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% else %}
+      <p>{{ render_icon("exclamation-triangle") }} Commands with errors: <i>None</i></p>
+    {% endif %}
+
+  {% else %}
+
+    <p>{% trans %}It seems that you haven't added yet any command. Click here to add a new one.{% endtrans %}</p>
+
+  {% endif %}
+
+{% endblock %}

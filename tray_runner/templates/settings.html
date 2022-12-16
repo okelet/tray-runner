@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+{% from 'utils.html' import form_tag, render_form_fields %}
+{% from 'bootstrap4/nav.html' import render_breadcrumb_item %}
+
+{% block title %}{{ _("Settings") }}{% endblock %}
+
+{% block breadcrumb %}
+  {{ render_breadcrumb_item('settings', _('Settings')) }}
+{% endblock %}
+
+{% block body %}
+
+  <ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="general-tab" data-toggle="tab" data-target="#general" type="button" role="tab" aria-controls="general" aria-selected="true">{{ _("General") }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="defaults-tab" data-toggle="tab" data-target="#defaults" type="button" role="tab" aria-controls="defaults" aria-selected="true">{{ _("Defaults") }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="stats-tab" data-toggle="tab" data-target="#stats" type="button" role="tab" aria-controls="stats" aria-selected="false">{{ _("Statistics") }}</button>
+    </li>
+  </ul>
+
+  {% call form_tag(
+    form,
+    id="settings_form",
+    form_type='horizontal',
+    action=url_for('settings')) %}
+
+    <div class="tab-content m-3" id="myTabContent">
+      <div class="tab-pane active" id="general" role="tabpanel" aria-labelledby="general-tab">
+        {{ render_form_fields(form, form_type="horizontal", include_common_fields=True, field_section_filter="general") }}
+      </div>
+      <div class="tab-pane" id="defaults" role="tabpanel" aria-labelledby="defaults-tab">
+        {{ render_form_fields(form, form_type="horizontal", include_common_fields=True, field_section_filter="defaults") }}
+      </div>
+      <div class="tab-pane" id="stats" role="tabpanel" aria-labelledby="stats-tab">
+
+      </div>
+    </div>
+
+  {% endcall %}
+
+
+{% endblock %}
+
+{% block customscripts %}
+  <script>
+    $(document).ready(function () {
+
+      enable_form_server_side_validation($("#settings_form"), {{ url_for("settings", validate="1") | tojson }});
+
+    });
+  </script>
+{% endblock %}

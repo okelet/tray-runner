@@ -1,0 +1,2 @@
+FLASK_APP=tray_runner.flask_app:run_app
+FLASK_ENV=development

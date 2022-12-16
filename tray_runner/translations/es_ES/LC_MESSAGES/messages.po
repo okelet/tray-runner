@@ -1,0 +1,636 @@
+# Spanish (Spain) translations for PROJECT.
+# Copyright (C) 2020 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2020.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2022-08-03 16:54+0200\n"
+"PO-Revision-Date: 2020-10-06 13:56+0200\n"
+"Last-Translator: \n"
+"Language: es_ES\n"
+"Language-Team: es_ES <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.10.3\n"
+
+#: tray_runner/config.py:76 tray_runner/flask_forms.py:65
+msgid "Command"
+msgstr "Comando"
+
+#: tray_runner/config.py:77 tray_runner/flask_forms.py:67
+msgid "Script"
+msgstr "Script"
+
+#: tray_runner/config.py:95
+msgid "Period"
+msgstr "Periodo"
+
+#: tray_runner/config.py:96
+msgid "Cron"
+msgstr "Cron"
+
+#: tray_runner/config.py:97
+msgid "One shot"
+msgstr ""
+
+#: tray_runner/config.py:269
+msgid "Command {command_exec} hasn't been found. The execution will likely fail."
+msgstr ""
+"El comando {command_exec} no se ha encontrado. La ejecución probablemente"
+" fallará."
+
+#: tray_runner/config.py:276
+msgid ""
+"Command {command} for the interpreter {interpreter} doesn't exist. Are "
+"you sure you want to use it? During execution, if this directory doesn't "
+"exist, the current user home directory will be used."
+msgstr ""
+
+#: tray_runner/config.py:281
+msgid ""
+"Directory {working_directory} doesn't exist. Are you sure you want to use"
+" it? During execution, if this directory doesn't exist, the current user "
+"home directory will be used."
+msgstr ""
+
+#: tray_runner/config.py:305
+msgid "Debug"
+msgstr "Depuración"
+
+#: tray_runner/config.py:306
+msgid "Info"
+msgstr "Información"
+
+#: tray_runner/config.py:307
+msgid "Warning"
+msgstr "Aviso"
+
+#: tray_runner/config.py:308
+msgid "Error"
+msgstr "Error"
+
+#: tray_runner/config.py:309
+msgid "Critical"
+msgstr "Crítico"
+
+#: tray_runner/flask_app.py:153
+msgid "Login successful"
+msgstr "Inicio de sesión correcto"
+
+#: tray_runner/flask_app.py:219
+msgid "Command deleted"
+msgstr "Comando eliminado"
+
+#: tray_runner/flask_app.py:267
+msgid "Command created"
+msgstr "Comando creado"
+
+#: tray_runner/flask_app.py:269
+msgid "Command updated"
+msgstr "Comando actualizado"
+
+#: tray_runner/flask_app.py:306
+msgid "Settings updated"
+msgstr "Opciones actualizadas"
+
+#: tray_runner/flask_app.py:325
+msgid "Invalid language"
+msgstr "Idioma no válido"
+
+#: tray_runner/flask_app.py:332
+msgid ""
+"Your language has been automatically set to {language}; you can change it"
+" in your <a href=\"{url}\">settings</a>."
+msgstr ""
+
+#: tray_runner/flask_app.py:337
+msgid "Empty language"
+msgstr "Idioma vacío"
+
+#: tray_runner/flask_forms.py:17
+msgid "Default"
+msgstr "Por defecto"
+
+#: tray_runner/flask_forms.py:17
+msgid "Yes"
+msgstr "Sí"
+
+#: tray_runner/flask_forms.py:17
+msgid "No"
+msgstr "No"
+
+#: tray_runner/flask_forms.py:40
+msgid "ID already being used."
+msgstr "El ID ya se está usando."
+
+#: tray_runner/flask_forms.py:57
+msgid "ID"
+msgstr "ID"
+
+#: tray_runner/flask_forms.py:57
+msgid ""
+"ID of the command; can only contain letters, numbers, dashes and "
+"underscores."
+msgstr ""
+
+#: tray_runner/flask_forms.py:58
+msgid "Name"
+msgstr "Nombre"
+
+#: tray_runner/flask_forms.py:58
+msgid "Descriptive name of the command."
+msgstr ""
+
+#: tray_runner/flask_forms.py:59
+msgid "Description of the command."
+msgstr ""
+
+#: tray_runner/flask_forms.py:60
+msgid "Disabled"
+msgstr "Deshabilitado"
+
+#: tray_runner/flask_forms.py:60
+msgid ""
+"Whether the command is disabled or enabled; if it is disabled, it won't "
+"run in an automated way (only when run manually)."
+msgstr ""
+
+#: tray_runner/flask_forms.py:61
+msgid "Maximum number of logs"
+msgstr ""
+
+#: tray_runner/flask_forms.py:63
+msgid "Working directory"
+msgstr "Directorio de trabajo"
+
+#: tray_runner/flask_forms.py:64
+msgid "Run mode"
+msgstr "Modo de ejecución"
+
+#: tray_runner/flask_forms.py:65
+msgid "Command to run."
+msgstr "Comando a ejecutar."
+
+#: tray_runner/flask_forms.py:66
+msgid "Script interpreter"
+msgstr "Intérprete del script"
+
+#: tray_runner/flask_forms.py:66
+msgid "Script interpreter to use to run the script below; only valid for Windows."
+msgstr ""
+
+#: tray_runner/flask_forms.py:67
+msgid "Script to run."
+msgstr "Script a ejecutar."
+
+#: tray_runner/flask_forms.py:69
+msgid "Run at startup"
+msgstr "Ejecutar al inicio"
+
+#: tray_runner/flask_forms.py:70
+msgid "Run at startup if missing previous run"
+msgstr ""
+
+#: tray_runner/flask_forms.py:71
+msgid "Schedule mode"
+msgstr "Modo de planificación"
+
+#: tray_runner/flask_forms.py:73
+msgid "Cron expression"
+msgstr "Expresión Cron"
+
+#: tray_runner/flask_forms.py:77 tray_runner/flask_forms.py:133
+msgid "Run in shell"
+msgstr ""
+
+#: tray_runner/flask_forms.py:78 tray_runner/flask_forms.py:134
+msgid "Restart on exit"
+msgstr ""
+
+#: tray_runner/flask_forms.py:79 tray_runner/flask_forms.py:135
+msgid "Restart on failure"
+msgstr ""
+
+#: tray_runner/flask_forms.py:80 tray_runner/flask_forms.py:136
+msgid "Include output in notifications"
+msgstr ""
+
+#: tray_runner/flask_forms.py:81 tray_runner/flask_forms.py:137
+msgid "Show notifications on complete"
+msgstr ""
+
+#: tray_runner/flask_forms.py:82 tray_runner/flask_forms.py:138
+msgid "Show notifications on error"
+msgstr ""
+
+#: tray_runner/flask_forms.py:97
+msgid "This field is mandatory when the schedule mode is set to Cron."
+msgstr ""
+
+#: tray_runner/flask_forms.py:99
+msgid "The expression not valid."
+msgstr "La expresión no es válida."
+
+#: tray_runner/flask_forms.py:106
+msgid "This field is mandatory when the run mode is set to Command."
+msgstr ""
+
+#: tray_runner/flask_forms.py:113 tray_runner/flask_forms.py:120
+msgid "This field is mandatory when the run mode is set to Script."
+msgstr ""
+
+#: tray_runner/flask_forms.py:128
+msgid "Language"
+msgstr "Idioma"
+
+#: tray_runner/flask_forms.py:129
+msgid "Log level"
+msgstr "Nivel de log"
+
+#: tray_runner/flask_forms.py:130
+msgid "Create shortcut in applications menu"
+msgstr ""
+
+#: tray_runner/flask_forms.py:131
+msgid "Auto start on login"
+msgstr ""
+
+#: tray_runner/gui/__init__.py:81
+msgid "Configuration"
+msgstr "Configuración"
+
+#: tray_runner/gui/__init__.py:82
+msgid "Quit"
+msgstr "Salir"
+
+#: tray_runner/gui/__init__.py:210
+msgid "Application already running"
+msgstr ""
+
+#: tray_runner/gui/__init__.py:210
+msgid "The application is already running."
+msgstr "La aplicación ya se está ejecutando"
+
+#: tray_runner/templates/commands_edit.html:7
+msgid "Add command"
+msgstr "Añadir comando"
+
+#: tray_runner/templates/commands_edit.html:9
+msgid "Edit command"
+msgstr "Editar comando"
+
+#: tray_runner/templates/commands_edit.html:15
+#: tray_runner/templates/commands_edit.html:18
+#: tray_runner/templates/commands_list.html:5
+#: tray_runner/templates/commands_list.html:9
+#: tray_runner/templates/commands_logs.html:11
+#: tray_runner/templates/commands_show.html:11
+#: tray_runner/templates/layout.html:59
+msgid "Commands"
+msgstr "Comandos"
+
+#: tray_runner/templates/commands_edit.html:16
+#: tray_runner/templates/commands_edit.html:34
+#: tray_runner/templates/commands_list.html:20
+#: tray_runner/templates/commands_logs.html:26
+#: tray_runner/templates/commands_show.html:26
+msgid "New"
+msgstr "Nuevo"
+
+#: tray_runner/templates/commands_edit.html:20
+#: tray_runner/templates/commands_list.html:38
+#: tray_runner/templates/commands_logs.html:24
+#: tray_runner/templates/commands_show.html:23
+msgid "Edit"
+msgstr "Editar"
+
+#: tray_runner/templates/commands_edit.html:22
+#: tray_runner/templates/commands_list.html:11
+#: tray_runner/templates/commands_logs.html:15
+#: tray_runner/templates/commands_show.html:14
+msgid "Export..."
+msgstr "Exportar..."
+
+#: tray_runner/templates/commands_edit.html:31
+#: tray_runner/templates/commands_list.html:37
+#: tray_runner/templates/commands_logs.html:23
+msgid "Show"
+msgstr "Ver"
+
+#: tray_runner/templates/commands_edit.html:32
+#: tray_runner/templates/commands_list.html:39
+#: tray_runner/templates/commands_logs.html:13
+#: tray_runner/templates/commands_show.html:24
+msgid "Logs"
+msgstr "Logs"
+
+#: tray_runner/templates/commands_edit.html:33
+#: tray_runner/templates/commands_list.html:40
+#: tray_runner/templates/commands_logs.html:25
+#: tray_runner/templates/commands_show.html:25
+msgid "Delete"
+msgstr "Eliminar"
+
+#: tray_runner/templates/commands_edit.html:48
+#: tray_runner/templates/commands_show.html:44
+#: tray_runner/templates/settings.html:15
+msgid "General"
+msgstr "General"
+
+#: tray_runner/templates/commands_edit.html:51
+#: tray_runner/templates/commands_show.html:47
+msgid "Run"
+msgstr "Ejecutar"
+
+#: tray_runner/templates/commands_edit.html:54
+#: tray_runner/templates/commands_show.html:50
+msgid "Schedule"
+msgstr "Planificación"
+
+#: tray_runner/templates/commands_edit.html:57
+#: tray_runner/templates/commands_show.html:53
+msgid "Options"
+msgstr "Opciones"
+
+#: tray_runner/templates/commands_edit.html:60
+#: tray_runner/templates/commands_show.html:56
+msgid "Environment"
+msgstr "Entorno"
+
+#: tray_runner/templates/commands_edit.html:82
+msgid "These options override, if set, those set in the general settings."
+msgstr ""
+
+#: tray_runner/templates/commands_logs.html:7
+#: tray_runner/templates/commands_show.html:7
+msgid "Command {command_name}"
+msgstr "Comando {command_name}"
+
+#: tray_runner/templates/commands_show.html:41
+msgid "Status"
+msgstr "Estado"
+
+#: tray_runner/templates/layout.html:56 tray_runner/templates/layout.html:75
+msgid "Home"
+msgstr "Inicio"
+
+#: tray_runner/templates/layout.html:62 tray_runner/templates/settings.html:5
+#: tray_runner/templates/settings.html:8
+msgid "Settings"
+msgstr "Opciones"
+
+#: tray_runner/templates/layout.html:118 tray_runner/templates/layout.html:120
+msgid "Confirm"
+msgstr "Confirmar"
+
+#: tray_runner/templates/layout.html:119
+msgid "Are you sure?"
+msgstr "¿Estás seguro?"
+
+#: tray_runner/templates/layout.html:121 tray_runner/templates/utils.html:41
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: tray_runner/templates/layout.html:123
+msgid "The error was: {error}"
+msgstr "El error fue: {error}"
+
+#: tray_runner/templates/layout.html:124
+msgid "Validation errors"
+msgstr "Errores de validación"
+
+#: tray_runner/templates/layout.html:125
+msgid "Settings saved"
+msgstr "Opciones guardadas"
+
+#: tray_runner/templates/layout.html:126
+msgid "Error saving language setting"
+msgstr ""
+
+#: tray_runner/templates/layout.html:127
+msgid "Error saving timezone setting"
+msgstr ""
+
+#: tray_runner/templates/layout.html:128
+msgid "Error validating data"
+msgstr "Error validando datos"
+
+#: tray_runner/templates/layout.html:129
+msgid "There is a field with validation errors."
+msgstr "Hay un campo con errores de validación."
+
+#: tray_runner/templates/layout.html:130
+msgid "There are {count} fields with validation errors."
+msgstr "Hay {count} campos con errores de validación."
+
+#: tray_runner/templates/layout.html:131
+msgid "{field_label}: {message}"
+msgstr "{field_label}: {message}"
+
+#: tray_runner/templates/layout.html:132
+msgid "{tab_name} &rarr; {field_label}: {message}"
+msgstr "{tab_name} &rarr; {field_label}: {message}"
+
+#: tray_runner/templates/settings.html:18
+msgid "Defaults"
+msgstr "Por defecto"
+
+#: tray_runner/templates/settings.html:21
+msgid "Statistics"
+msgstr "Estadísticas"
+
+#: tray_runner/templates/utils.html:38
+msgid "Save"
+msgstr "Guardar"
+
+#~ msgid "Language"
+#~ msgstr "Idioma"
+
+#~ msgid "Time zone"
+#~ msgstr "Zona horaria"
+
+#~ msgid "Save"
+#~ msgstr "Guardar"
+
+#~ msgid "Login successful"
+#~ msgstr ""
+
+#~ msgid "Failed to update AWS cost: {error}"
+#~ msgstr ""
+
+#~ msgid "AWS cost updated"
+#~ msgstr ""
+
+#~ msgid "Failed to update Google Cloud cost: {error}"
+#~ msgstr ""
+
+#~ msgid "Google Cloud cost updated"
+#~ msgstr ""
+
+#~ msgid "Settings updated"
+#~ msgstr "Preferencias actualizadas"
+
+#~ msgid "Invalid language"
+#~ msgstr "Idioma no válido"
+
+#~ msgid ""
+#~ "Your language has been automatically set"
+#~ " to {language}; you can change it "
+#~ "in your <a href=\"{url}\">settings</a>."
+#~ msgstr ""
+
+#~ msgid "Empty language"
+#~ msgstr "Idioma vacío"
+
+#~ msgid "Invalid timezone"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Your timezone has been automatically set"
+#~ " to {timezone}; you can change it "
+#~ "in your <a href=\"{url}\">settings</a>."
+#~ msgstr ""
+
+#~ msgid "Empty timezone"
+#~ msgstr ""
+
+#~ msgid "Welcome"
+#~ msgstr "Bienvenido"
+
+#~ msgid "no data"
+#~ msgstr "sin datos"
+
+#~ msgid "Control panel"
+#~ msgstr ""
+
+#~ msgid "Home"
+#~ msgstr "Inicio"
+
+#~ msgid "Torrents"
+#~ msgstr ""
+
+#~ msgid "LOGs"
+#~ msgstr ""
+
+#~ msgid "Settings"
+#~ msgstr "Preferencias"
+
+#~ msgid "Confirm"
+#~ msgstr ""
+
+#~ msgid "Are you sure?"
+#~ msgstr ""
+
+#~ msgid "Cancel"
+#~ msgstr ""
+
+#~ msgid "The error was: {error}"
+#~ msgstr ""
+
+#~ msgid "Settings saved"
+#~ msgstr ""
+
+#~ msgid "Error saving language setting"
+#~ msgstr ""
+
+#~ msgid "Error saving timezone setting"
+#~ msgstr ""
+
+#~ msgid "Date"
+#~ msgstr ""
+
+#~ msgid "Message"
+#~ msgstr ""
+
+#~ msgid "File"
+#~ msgstr ""
+
+#~ msgid "Command failed to run ({error_message})."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command failed to run ({error_message}); "
+#~ "restarting after {period_seconds} seconds..."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command exited with code {exit_code} "
+#~ "(took {elapsed_time:.2f} seconds).\n"
+#~ "\n"
+#~ "Standard output: {stdout}\n"
+#~ "\n"
+#~ "Error output: {stderr}"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command exited with code {exit_code} "
+#~ "(took {elapsed_time:.2f} seconds).\n"
+#~ "\n"
+#~ "Standard output: {stdout}"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command exited with code {exit_code} "
+#~ "(took {elapsed_time:.2f} seconds).\n"
+#~ "\n"
+#~ "Error output: {stderr}"
+#~ msgstr ""
+
+#~ msgid "Command exited with code {exit_code} (took {elapsed_time:.2f} seconds)."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command exited with code {exit_code} "
+#~ "(took {elapsed_time:.2f} seconds); restarting "
+#~ "after {period_seconds} seconds...\n"
+#~ "\n"
+#~ "Standard output: {stdout}\n"
+#~ "\n"
+#~ "Error output: {stderr}"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command exited with code {exit_code} "
+#~ "(took {elapsed_time:.2f} seconds); restarting "
+#~ "after {period_seconds} seconds...\n"
+#~ "\n"
+#~ "Standard output: {stdout}"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command exited with code {exit_code} "
+#~ "(took {elapsed_time:.2f} seconds); restarting "
+#~ "after {period_seconds} seconds...\n"
+#~ "\n"
+#~ "Error output: {stderr}"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Command exited with code {exit_code} "
+#~ "(took {elapsed_time:.2f} seconds); restarting "
+#~ "after {period_seconds} seconds..."
+#~ msgstr ""
+
+#~ msgid "{count} torrents removed"
+#~ msgstr ""
+
+#~ msgid "{count} logs removed"
+#~ msgstr ""
+
+#~ msgid "Notification"
+#~ msgstr ""
+
+#~ msgid "Remove all"
+#~ msgstr ""
+
+#~ msgid "Show command"
+#~ msgstr "Ver comando"
+
+#~ msgid "Delete command"
+#~ msgstr "Eliminar comando"
+

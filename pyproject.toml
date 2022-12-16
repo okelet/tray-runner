@@ -6,39 +6,11 @@ homepage = "https://github.com/okelet/tray-runner"
 name = "tray-runner"
 readme = "README.md"
 repository = "https://github.com/okelet/tray-runner"
-version = "0.4.1"
-
-[tool.poetry.dependencies]
-Babel = "^2.10.1"
-click = "^8.1.3"
-pydantic = "^1.9.1"
-python = ">=3.10,<3.11"
-python-slugify = "^6.1.2"
-PySide6-Essentials = "^6.3.0"
-python-dateutil = "^2.8.2"
-winshell = [{ version = "^0.6", platform = "win32" }]
-pywin32 = [{ version = "^304", platform = "win32" }]
-croniter = "^1.3.5"
+version = "0.5"
 
 [tool.poetry.scripts]
 tray-runner-cli = "tray_runner.cli:run"
 tray-runner-gui = "tray_runner.gui:run"
-
-[tool.poetry.dev-dependencies]
-black = "^22.3.0"
-isort = "^5.10.1"
-mypy = "^0.950"
-pre-commit = "^2.19.0"
-pylint = "^2.13.9"
-types-PyYAML = "^6.0.7"
-pyinstaller = "^5.0.1"
-types-python-slugify = "^5.0.4"
-types-python-dateutil = "^2.8.16"
-types-pytz = "^2021.3.8"
-types-babel = "^2.9.12"
-IceSpringPySideStubs-PySide6 = "^1.3.1"
-types-croniter = "^1.0.10"
-Pillow = "^9.1.1"
 
 [tool.black]
 line-length = 999
@@ -51,15 +23,61 @@ profile = "black"
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = ["winshell"]
+module = ["winshell", "pystray", "wtforms", "wtforms.validators", "wtforms.widgets", "flask_babel", "flask_wtf", "flask_bootstrap", "flask_login", "flask_debugtoolbar"]
 ignore_missing_imports = true
 
 [tool.pylint.format]
 max-line-length = 999
 
 [tool.pylint.master]
-extension-pkg-whitelist = "pydantic,PySide6"
+extension-pkg-whitelist = "pydantic"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+click = "^8.1.3"
+filelock = "^3.8.0"
+Flask = "^2.1.3"
+pydantic = "^1.9.2"
+pytz = "^2022.2"
+python-dateutil = "^2.8.2"
+python-slugify = "^6.1.2"
+cheroot = "^8.6.0"
+Flask-Babel = "^2.0.0"
+Bootstrap-Flask = "^2.0.2"
+Flask-Login = "^0.6.2"
+Flask-WTF = "^1.0.1"
+croniter = "^1.3.5"
+Pillow = "^9.2.0"
+winshell = [{ version = "^0.6", platform = "win32" }]
+pywin32 = [{ version = "^304", platform = "win32" }]
+python-xlib = [{ version = "^0.31", platform = "linux" }]
+"vext.gi" = [{ version = "^0.7.4", platform = "linux" }]
+"vext.pygtk" = [{ version = "^0.7.4", platform = "linux" }]
+pystray = "^0.19.4"
+python-dotenv = "^0.20.0"
+psutil = "^5.9.1"
+requests = "^2.28.1"
+fastapi = "^0.85.0"
+uvicorn = {extras = ["standard"], version = "^0.18.3"}
+fastapi-login = "^1.8.2"
+cryptography = "^38.0.1"
+python-multipart = "^0.0.5"
+
+[tool.poetry.dev-dependencies]
+Flask-DebugToolbar = "^0.13.1"
+pylint = "^2.14.5"
+black = "^22.6.0"
+mypy = "^0.971"
+isort = "^5.10.1"
+types-croniter = "^1.3.2"
+types-python-slugify = "^6.1.0"
+types-python-dateutil = "^2.8.19"
+types-pytz = "^2022.1.2"
+types-requests = "^2.28.8"
+types-babel = "^2.10.0"
+types-Pillow = "^9.2.1"
+types-click = "^7.1.8"
 
 [build-system]
-build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

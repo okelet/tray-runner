@@ -1,11 +1,14 @@
 {
     "cSpell.words": [
         "croniter",
+        "fastapi",
+        "filelock",
         "levelname",
         "NOTSET",
         "pydantic",
         "pytz",
         "relativepath",
+        "uvicorn",
         "winshell"
     ]
 }

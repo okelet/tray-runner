@@ -1,0 +1,74 @@
+@baseApiUrl = http://127.0.0.1:5000/api
+@token = 123456
+###
+
+GET {{baseApiUrl}}/ping
+
+###
+
+# @name login
+POST {{baseApiUrl}}/auth/login
+content-type: application/json
+
+{
+    "token": "{{ token }}"
+}
+
+###
+
+@authToken = {{login.response.body.$.access_token}}
+
+GET {{baseApiUrl}}/auth/me
+Authorization: Bearer {{authToken}}
+
+###
+
+@authToken = {{login.response.body.$.access_token}}
+
+GET {{baseApiUrl}}/commands
+Authorization: Bearer {{authToken}}
+
+###
+
+@authToken = {{login.response.body.$.access_token}}
+
+GET {{baseApiUrl}}/commands/test_not_found
+Authorization: Bearer {{authToken}}
+
+###
+
+@authToken = {{login.response.body.$.access_token}}
+@new_id = {{$guid}}
+
+# @name commands_add
+PUT {{baseApiUrl}}/commands
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Test - {{new_id}}"
+}
+
+###
+
+@authToken = {{login.response.body.$.access_token}}
+@id = {{commands_add.response.body.$.id}}
+
+GET {{baseApiUrl}}/commands/{{id}}
+Authorization: Bearer {{authToken}}
+
+###
+
+@authToken = {{login.response.body.$.access_token}}
+@id = {{commands_add.response.body.$.id}}
+
+POST {{baseApiUrl}}/commands/{{id}}
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Test",
+  "command": "pwd",
+  "max_log_count": 10,
+  "run_at_startup": true
+}
+
+###

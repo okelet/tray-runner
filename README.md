@@ -69,30 +69,46 @@ tray-runner-gui --help
 
 ## Development
 
+### Run application
+
+With Flask:
+
+```bash
+poetry run flask run
+```
+
+Then access to <http://127.0.0.1:5000> (a fake login will be performed automatically).
+
+With FastAPI:
+
+```bash
+TRAY_RUNNER_SECRET_KEY=xxxxxxxx TRAY_RUNNER_LOGIN_TOKEN=123456 poetry run uvicorn --factory --port 5000 --reload tray_runner.fast_api_app:run_app
+```
+
 ### Translations
 
 Update the template:
 
 ```bash
-poetry run pybabel extract -o tray_runner/locale/messages.pot
+poetry run pybabel extract -F babel.cfg -k lazy_gettext -o tray_runner/translations/messages.pot .
 ```
 
 Generate a new language:
 
 ```bash
-poetry run pybabel init -l de_DE -i tray_runner/locale/messages.pot -d tray_runner/locale
+poetry run pybabel init -l de_DE -i tray_runner/translations/messages.pot -d tray_runner/translations
 ```
 
 Update the languages with the new translations found:
 
 ```bash
-poetry run pybabel update -i tray_runner/locale/messages.pot -d tray_runner/locale
+poetry run pybabel update -i tray_runner/translations/messages.pot -d tray_runner/translations
 ```
 
 Compile the translations:
 
 ```bash
-poetry run pybabel compile -d tray_runner/locale
+poetry run pybabel compile -d tray_runner/translations
 ```
 
 ### Code quality
@@ -100,10 +116,11 @@ poetry run pybabel compile -d tray_runner/locale
 Running directly the commands:
 
 ```bash
+poetry run isort tray_runner
+poetry run pylint tray_runner --disable missing-function-docstring,missing-class-docstring,missing-module-docstring,invalid-name,fixme,too-many-arguments,broad-except,too-many-branches,too-many-statements,too-many-locals,too-many-instance-attributes,too-many-nested-blocks,wrong-import-order,pointless-string-statement
 poetry run pylint tray_runner
 poetry run black tray_runner
 poetry run mypy tray_runner
-poetry run isort tray_runner
 ```
 
 Using `pre-commit`:

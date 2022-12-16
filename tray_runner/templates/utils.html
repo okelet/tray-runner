@@ -1,0 +1,119 @@
+{% from 'bootstrap4/form.html' import render_hidden_errors, render_field %}
+
+{% macro form_tag(form,
+                    action="",
+                    method="post",
+                    extra_classes=None,
+                    role="form",
+                    form_type="basic",
+                    enctype=None,
+                    id="",
+                    novalidate=False,
+                    include_submit_button=True,
+                    cancel_button_url=None,
+                    render_kw={}) %}
+  {%- set _enctype = [] %}
+  {%- if enctype is none -%}
+    {%- for field in form %}
+      {%- if field.type in ['FileField', 'MultipleFileField'] %}
+        {#- for loops come with a fairly watertight scope, so this list-hack is
+          used to be able to set values outside of it #}
+        {%- set _ = _enctype.append('multipart/form-data') -%}
+      {%- endif %}
+    {%- endfor %}
+  {%- else %}
+    {% set _ = _enctype.append(enctype) %}
+  {%- endif %}
+  <form{%- if action != None %} action="{{ action }}"{% endif -%}
+    {%- if id %} id="{{ id }}"{% endif -%}
+    {%- if method %} method="{{ method }}"{% endif %}
+                                class="form
+{%- if extra_classes %} {{ extra_classes }}{% endif -%}{%- if form_type == "inline" %} form-inline{% endif -%}"
+    {%- if _enctype[0] %} enctype="{{ _enctype[0] }}"{% endif -%}
+    {%- if role %} role="{{ role }}"{% endif -%}
+    {%- if novalidate %} novalidate{% endif -%}
+    {%- if render_kw %} {{ render_kw|xmlattr }}{% endif -%}>
+    {{ caller() }}
+    {% if include_submit_button %}
+      <button class="btn btn-primary btn-md" type="submit">{{ _("Save") }}</button>
+    {% endif %}
+    {% if cancel_button_url %}
+      <a class="btn btn-secondary btn-md" href="{{ cancel_button_url }}">{{ _("Cancel") }}</a>
+    {% endif %}
+  </form>
+{%- endmacro %}
+
+{% macro render_form_fields(form,
+                    form_type="basic",
+                    horizontal_columns=('lg', 2, 10),
+                    button_map={},
+                    button_style="",
+                    button_size="",
+                    include_common_fields=True,
+                    field_section_filter=None) %}
+
+  {% if include_common_fields %}
+    {{ form.hidden_tag() }}
+    {{ render_hidden_errors(form) }}
+  {% endif %}
+
+  {%- for field in form %}
+    {% if not field_section_filter or (field.render_kw and field.render_kw.get("data-section") == field_section_filter) %}
+      {% if not bootstrap_is_hidden_field(field) -%}
+        {{ render_field(field,
+                    form_type=form_type,
+                    horizontal_columns=horizontal_columns,
+                    button_map=button_map,
+                    button_style=button_style,
+                    button_size=button_size) }}
+      {%- endif %}
+    {% endif %}
+  {%- endfor %}
+
+{%- endmacro %}
+
+{% macro render_form_ext(form,
+                    action="",
+                    method="post",
+                    extra_classes=None,
+                    role="form",
+                    form_type="basic",
+                    horizontal_columns=('lg', 2, 10),
+                    enctype=None,
+                    button_map={},
+                    button_style="",
+                    button_size="",
+                    id="",
+                    novalidate=False,
+                    include_submit_button=True,
+                    cancel_button_url=None,
+                    render_kw={}) %}
+
+
+  {% call form_tag(
+    form,
+    action=action,
+    method=method,
+    extra_classes=extra_classes,
+    role=role,
+    form_type=form_type,
+    enctype=enctype,
+    id=id,
+    novalidate=novalidate,
+    include_submit_button=include_submit_button,
+    cancel_button_url=cancel_button_url,
+    render_kw=render_kw) %}
+
+    {{ render_form_fields(
+        form,
+        form_type=form_type,
+        horizontal_columns=horizontal_columns,
+        button_map=button_map,
+        button_style=button_style,
+        button_size=button_size
+    ) }}
+
+  {% endcall %}
+  
+{%- endmacro %}
+

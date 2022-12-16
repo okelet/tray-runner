@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+{% from 'bootstrap4/nav.html' import render_breadcrumb_item %}
+{% from 'bootstrap4/utils.html' import render_icon %}
+
+{% block title %}{{ _("Commands") }}{% endblock %}
+
+
+{% block breadcrumb %}
+  {{ render_breadcrumb_item('commands_list', _('Commands')) }}
+  <li class="dropdown ml-auto">
+    <a href="#" class="dropdown-toggle text-decoration-none" data-toggle="dropdown" title="{{ gettext("Export...") }}">
+      {{ render_icon("download") }}<span class="caret ml-0"></span>
+    </a>
+    <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+      <a class="dropdown-item" href="{{ url_for('commands_list', export='json') }}">JSON</a>
+      <a class="dropdown-item" href="{{ url_for('commands_list', export='csv') }}">CSV</a>
+      <a class="dropdown-item" href="{{ url_for('commands_list', export='xls') }}">XLS</a>
+    </div>
+  </li>
+  <li class="ml-2"><a href="{{ url_for('commands_edit') }}" title="{{ gettext("New") }}">{{ render_icon("plus") }}</a></li>
+{% endblock %}
+
+{% block body %}
+
+  <table class="datatable datatable-simple table table-hover table-bordered" data-order='[[0, "asc"]]'>
+    <thead>
+    <tr>
+      <th>{{ _("Name") }}</th>
+      <th>{{ _("Schedule mode") }}</th>
+      <th>{{ _("Last run") }}</th>
+      <th>{{ _("Last status") }}</th>
+      <th>{{ _("Actions") }}</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for command in commands | sort(attribute="name") %}
+      <tr class="table-{{ command.status_color }}">
+        <td data-sort="{{ command.name }}">{% if command.disabled %}{{ render_icon("square") }}{% else %}{{ render_icon("check-square") }}{% endif %}<a href="{{ url_for('commands_show', command_id=command.id) }}">{{ command.name }}</a></td>
+        <td data-sort="{{ command.schedule_mode.value if command.schedule_mode else '' }}">
+          {% if command.schedule_mode.value == "PERIOD" %}
+            {{ command.schedule_mode.display_name() }} ({{ _("{seconds} seconds").format(seconds=command.period_seconds) }})
+          {% elif command.schedule_mode.value == "CRON" %}
+            {{ command.schedule_mode.display_name() }} ({{ command.cron_expr }})
+          {% elif command.schedule_mode.value == "APP_STARTUP" %}
+            {{ command.schedule_mode.display_name() }}
+          {% elif command.schedule_mode.value == "SYSTEM_STARTUP" %}
+            {{ command.schedule_mode.display_name() }}
+          {% elif command.schedule_mode.value == "MANUAL" %}
+            {{ command.schedule_mode.display_name() }}
+          {% else %}
+            {{ command.schedule_mode.display_name() }}
+          {% endif %}
+        </td>
+        <td data-sort="{{ command.current_status.start_time.isoformat() if command.current_status else (command.last_status.start_time.isoformat() if command.last_status else '') }}">{{ command.current_status.start_dt | datetimeformat if command.current_status else (command.last_status.start_dt | datetimeformat if command.last_status else _("Never")) }}</td>
+        <td data-sort="{{ command.current_status.status.value if command.current_status else (command.last_status.status.value if command.last_status else '') }}">
+          {% if command.current_status %}
+            {{ command.current_status.value.display_name() }}
+          {% elif command.last_status %}
+            {% if command.last_status.status.value in ["FAILED", "SUCCESS", "RUNNING"] %}
+              {{ command.last_status.status.display_name() }}
+            {% elif command.last_status.status.value in ["ERROR", "STOPPED"] %}
+              {% if command.exit_code == 0 %}
+                {{ command.status.display_name() }}
+              {% else %}
+                {{ _("Error ({exit_code})").format(exit_code=command.last_status.exit_code) }}
+              {% endif %}
+            {% else %}
+              {{ _("Unknown") }}
+            {% endif %}
+          {% else %}
+            {{ _("Unknow") }}
+          {% endif %}
+        </td>
+        <td>
+          <a href="{{ url_for('commands_show', command_id=command.id) }}" class="text-decoration-none" title="{{ gettext("Show") }}">{{ render_icon("eye") }}</a>
+          <a href="{{ url_for('commands_edit', command_id=command.id) }}" class="text-decoration-none" title="{{ gettext("Edit") }}">{{ render_icon("pencil") }}</a>
+          <a href="{{ url_for('commands_logs', command_id=command.id) }}" class="text-decoration-none" title="{{ gettext("Logs") }}">{{ render_icon("clock-history") }}</a>
+          <a href="{{ url_for('commands_run', command_id=command.id) }}" class="post_link text-decoration-none" title="{{ gettext("Run") }}">{{ render_icon("play") }}</a>
+          <a href="{{ url_for('commands_delete', command_id=command.id) }}" class="post_link text-decoration-none" title="{{ gettext("Delete") }}">{{ render_icon("trash") }}</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+{% endblock %}
+
+{% block customscripts %}
+  <script>
+    $(document).ready(function () {
+    });
+  </script>
+{% endblock %}

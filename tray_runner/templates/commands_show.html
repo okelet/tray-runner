@@ -1,0 +1,187 @@
+{% extends "layout.html" %}
+{% from 'bootstrap4/form.html' import render_form %}
+{% from 'bootstrap4/nav.html' import render_breadcrumb_item %}
+{% from 'bootstrap4/utils.html' import render_icon, render_messages %}
+
+{% block title %}
+  {{ _("Command {command_name}").format(command_name=command.name) }}
+{% endblock %}
+
+{% block breadcrumb %}
+  {{ render_breadcrumb_item('commands_list', _('Commands')) }}
+  {{ render_breadcrumb_item('commands_show', command.name, command_id=command.id) }}
+  <li class="dropdown ml-auto">
+    <a href="#" class="dropdown-toggle text-decoration-none" data-toggle="dropdown" title="{{ gettext("Export...") }}">
+      {{ render_icon("download") }}<span class="caret ml-0"></span>
+    </a>
+    <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+      <a class="dropdown-item" href="{{ url_for('commands_show', command_id=command.id, export='json') }}">JSON</a>
+      <a class="dropdown-item" href="{{ url_for('commands_show', command_id=command.id, export='csv') }}">CSV</a>
+      <a class="dropdown-item" href="{{ url_for('commands_show', command_id=command.id, export='xls') }}">XLS</a>
+    </div>
+  </li>
+  <li class="ml-2"><a href="{{ url_for('commands_edit', command_id=command.id) }}" title="{{ gettext("Edit") }}">{{ render_icon("pencil") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_logs', command_id=command.id) }}" title="{{ gettext("Logs") }}">{{ render_icon("clock-history") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_run', command_id=command.id) }}" class="post_link" title="{{ gettext("Run") }}">{{ render_icon("play") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_delete', command_id=command.id) }}" class="post_link" title="{{ gettext("Delete") }}">{{ render_icon("trash") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_edit') }}" title="{{ gettext("New") }}">{{ render_icon("plus") }}</a></li>
+{% endblock %}
+
+{% block body %}
+
+  {% with messages = command.get_warnings_as_tuples() %}
+    {% if messages %}
+      {{ render_messages(messages=messages) }}
+    {% endif %}
+  {% endwith %}
+
+  {% if command.current_status == "RUNNING" %}
+    {{ render_messages(messages=[("info", _("The command is currently running."))]) }}
+  {% endif %}
+
+  <ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="status-tab" data-toggle="tab" data-target="#status" type="button" role="tab" aria-controls="status" aria-selected="false">{{ _("Status") }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="general-tab" data-toggle="tab" data-target="#general" type="button" role="tab" aria-controls="general" aria-selected="true">{{ _("General") }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="run-tab" data-toggle="tab" data-target="#run" type="button" role="tab" aria-controls="run" aria-selected="false">{{ _("Run") }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="schedule-tab" data-toggle="tab" data-target="#schedule" type="button" role="tab" aria-controls="schedule" aria-selected="false">{{ _("Schedule") }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="options-tab" data-toggle="tab" data-target="#options" type="button" role="tab" aria-controls="options" aria-selected="false">{{ _("Options") }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="environment-tab" data-toggle="tab" data-target="#environment" type="button" role="tab" aria-controls="environment" aria-selected="false">{{ _("Environment") }}</button>
+    </li>
+  </ul>
+
+  <div class="tab-content m-3" id="myTabContent">
+
+    <div class="tab-pane active" id="status" role="tabpanel" aria-labelledby="status-tab">
+
+      {% if command.last_run_status %}
+
+        <h2>Last run</h2>
+
+        <p>{{ _("Status") }}: {{ command.last_run_status.display_name() if command.last_run_status else _("Unknown") }}</p>
+        <p>{{ _("Date") }}: {{ command.last_run_dt | datetimeformat if command.last_run_dt else _("Never") }}</p>
+        <p>{{ _("Duration") }}: {{ _("{seconds} seconds").format(seconds=command.last_duration | numberformat) }}</p>
+        <p>{{ _("Exit code") }}: {{ command.last_run_exit_code if command.last_run_exit_code is not none else _("Unknown") }}</p>
+        {% if command.last_run_status in ["SUCCESS", "ERROR"] %}
+          {% if command.last_run_stdout %}
+            <p>{{ _("Standard output") }}:</p>
+            <pre><code>{{ command.last_run_stdout }}</code></pre>
+          {% endif %}
+          {% if command.last_run_stderr %}
+            <p>{{ _("Error output") }}:</p>
+            <pre><code>{{ command.last_run_stderr }}</code></pre>
+          {% endif %}
+        {% endif %}
+        {% if command.last_run_status == "FAILED" %}
+          <p>{{ _("Fail message") }}: {{ command.last_run_fail_message }}</p>
+        {% endif %}
+
+      {% endif %}
+
+      <h2>Statistics</h2>
+
+      <p>{{ _("Number of runs") }}: {{ command.total_runs | numberformat }}</p>
+      <p>{{ _("Successful runs") }}: {{ command.ok_runs | numberformat }}</p>
+      <p>{{ _("Error runs") }}: {{ command.error_runs | numberformat }}</p>
+      <p>{{ _("Failed runs") }}: {{ command.failed_runs | numberformat }}</p>
+      <p>{{ _("Average duration") }}: {{ _("{seconds} seconds").format(seconds=command.avg_duration | numberformat) if command.avg_duration else _("Unknown") }}</p>
+      <p>{{ _("Minimum duration") }}: {{ _("{seconds} seconds").format(seconds=command.min_duration | numberformat) if command.min_duration else _("Unknown") }}</p>
+      <p>{{ _("Maximum duration") }}: {{ _("{seconds} seconds").format(seconds=command.max_duration | numberformat) if command.max_duration else _("Unknown") }}</p>
+
+    </div>
+
+    <div class="tab-pane" id="general" role="tabpanel" aria-labelledby="general-tab">
+
+      <p>{{ _("ID") }}: {{ command.id }}</p>
+      <p>{{ _("Name") }}: {{ command.name }}</p>
+      <p>{{ _("Description") }}: {{ command.description or _("None") }}</p>
+      <p>{{ _("Disabled") }}: {{ _("Yes") if command.disabled else _("No") }}</p>
+      <p>{{ _("Maximum number of logs") }}: {{ command.max_log_count | numberformat }}</p>
+
+    </div>
+
+    <div class="tab-pane" id="run" role="tabpanel" aria-labelledby="run-tab">
+
+      <p>{{ _("Working directory") }}: {{ command.working_directory }}</p>
+      <p>{{ _("Run mode") }}: {{ command.run_mode.display_name() }}</p>
+      {% if command.run_mode == "COMMAND" %}
+        <p>{{ _("Command") }}: {{ command.command }}</p>
+      {% endif %}
+      {% if command.run_mode == "SCRIPT" %}
+        <p>{{ _("Script interpreter") }}: {{ command.script_interpreter }}</p>
+        <p>{{ _("Script") }}: {{ command.script }}</p>
+      {% endif %}
+
+    </div>
+
+    <div class="tab-pane" id="schedule" role="tabpanel" aria-labelledby="schedule-tab">
+
+      <p>{{ _("Schedule mode") }}: {{ command.schedule_mode.display_name() }}</p>
+      {% if command.schedule_mode in ["CRON", "PERIOD", "APP_STARTUP", "SYSTEM_STARTUP"] %}
+        <p>{{ _("Startup delay") }}: {{ _("{seconds} seconds").format(seconds=command.startup_delay_seconds) }}</p>
+      {% endif %}
+      {% if command.schedule_mode == "CRON" %}
+        <p>{{ _("Cron expression") }}: {{ command.cron_expr }}</p>
+      {% endif %}
+      {% if command.schedule_mode == "PERIOD" %}
+        <p>{{ _("Period") }}: {{ _("{seconds} seconds").format(seconds=command.period_seconds) }}</p>
+      {% endif %}
+      {% if command.schedule_mode in ["CRON", "PERIOD"] %}
+        <p>{{ _("Run at startup") }}: {{ _("Yes") if command.run_at_startup else _("No") }}</p>
+        <p>{{ _("Run at startup if missing previous run") }}: {{ _("Yes") if command.run_at_startup_if_missing_previous_run else _("No") }}</p>
+        <p>{{ _("Next scheduled run") }}: {{ command.next_run_dt | datetimeformat if command.next_run_dt else _("Unknown") }}</p>
+      {% endif %}
+
+    </div>
+
+    <div class="tab-pane" id="options" role="tabpanel" aria-labelledby="options-tab">
+
+      <p>{{ _("Run in shell") }}: {% if command.run_in_shell.value != "DEFAULT" %}{{ command.run_in_shell.display_name() }}{% else %}{{ _("By default") }} ({{ _("Yes") if config.run_in_shell else _("No") }}){% endif %}</p>
+      <p>{{ _("Include output in notifications") }}: {% if command.include_output_in_notifications.value != "DEFAULT" %}{{ command.include_output_in_notifications.display_name() }}{% else %}{{ _("By default") }} ({{ _("Yes") if config.include_output_in_notifications else _("No") }}){% endif %}</p>
+      <p>{{ _("Show notifications on complete") }}: {% if command.show_complete_notifications.value != "DEFAULT" %}{{ command.show_complete_notifications.display_name() }}{% else %}{{ _("By default") }} ({{ _("Yes") if config.show_complete_notifications else _("No") }}){% endif %}</p>
+      <p>{{ _("Show notifications on error") }}: {% if command.show_error_notifications.value != "DEFAULT" %}{{ command.show_error_notifications.display_name() }}{% else %}{{ _("By default") }} ({{ _("Yes") if config.show_error_notifications else _("No") }}){% endif %}</p>
+
+    </div>
+
+    <div class="tab-pane" id="environment" role="tabpanel" aria-labelledby="environment-tab">
+
+  <table class="datatable datatable-simple table table-hover table-bordered" data-order='[[0, "asc"]]'>
+    <thead>
+    <tr>
+      <th>{{ _("Key") }}</th>
+      <th>{{ _("Value") }}</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for env in command.environment | sort(attribute="key") %}
+      <tr>
+        <td data-sort="{{ env.key.lower() }}">{{ env.key }}</td>
+        <td data-sort="{{ env.value.lower() }}">{{ env.value }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+
+    </div>
+
+  </div>
+
+{% endblock %}
+
+{% block customscripts %}
+  <script>
+    $(document).ready(function () {
+    });
+  </script>
+{% endblock %}

@@ -7,26 +7,51 @@ import os
 import shlex
 import subprocess
 import sys
+import threading
 from datetime import datetime, tzinfo
+from enum import Enum
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import click
 import pytz
+from babel.core import Locale
 from dateutil.tz import tzlocal
-from PySide6.QtCore import QThread
+from flask_babel import lazy_gettext
+from pydantic import BaseModel
 from slugify import slugify
+
+from tray_runner.utils import PackagePathFilter
 
 LOG = logging.getLogger(__name__)
 
 
-class CommandAborted(Exception):
-    """
-    CommandAborted exception class.
-    """
+class YesNoDefault(str, Enum):
+
+    YES = "YES"
+    NO = "NO"
+    DEFAULT = "DEFAULT"
+
+    def display_name(self):
+        """
+        Returns a friendly display name.
+        """
+        return {
+            self.YES.value: lazy_gettext("Yes"),
+            self.NO.value: lazy_gettext("No"),
+            self.DEFAULT.value: lazy_gettext("By default"),
+        }.get(self.value, self.value)
+
+    def to_boolean(self) -> Optional[bool]:
+        return {
+            self.YES.value: True,
+            self.NO.value: False,
+            self.DEFAULT.value: None,
+        }[self.value]
 
 
-def run_command(command: Union[str, List[str]], environ: Optional[Dict[str, str]] = None, run_in_shell: Optional[bool] = True, working_directory: Optional[str] = None, thread: Optional[QThread] = None, poll_period_ms: Optional[int] = None) -> Tuple[int, int, Optional[str], Optional[str]]:  # pylint: disable=too-many-arguments
+def run_command(command: Union[str, List[str]], environ: Optional[Dict[str, str]] = None, run_in_shell: Optional[bool] = True, working_directory: Optional[str] = None, stop_event: Optional[threading.Event] = None, poll_period_ms: Optional[int] = None) -> Tuple[int, int, Optional[str], Optional[str]]:  # pylint: disable=too-many-arguments
     """
     Runs a command using Powershell in Windows, or the current shell in Linux.
 
@@ -56,10 +81,27 @@ def run_command(command: Union[str, List[str]], environ: Optional[Dict[str, str]
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, env=new_env, cwd=working_directory, shell=run_in_shell) as process:
         LOG.debug("Waiting for command %s to finish...", command)
         while True:
-            if thread and thread.isInterruptionRequested():
-                LOG.info("Command %s, stop signal detected; killing command and raising CommandAborted exception.", command)
-                process.kill()
-                raise CommandAborted()
+            if stop_event and stop_event.is_set():
+                LOG.info("Command %s, stop signal detected...", command)
+                LOG.info("Command %s, sending terminate signal...", command)
+                process.terminate()
+                try:
+                    LOG.info("Command %s, waiting for process to finish...", command)
+                    stdout, stderr = process.communicate(timeout=3)
+                    LOG.info("Command %s, process finished.", command)
+                except subprocess.TimeoutExpired:
+                    LOG.info("Command %s, timeout detected, sending kill signal...", command)
+                    process.kill()
+                    LOG.info("Command %s, closing streams...", command)
+                    if process.stdout:
+                        process.stdout.close()
+                    if process.stderr:
+                        process.stderr.close()
+                    LOG.info("Command %s, getting output data...", command)
+                    stdout, stderr = process.communicate()
+                pid = process.pid
+                exit_code = process.returncode
+                return pid, exit_code, stdout.strip() if stdout.strip() else None, stderr.strip() if stderr.strip() else None
             try:
                 stdout, stderr = process.communicate(timeout=poll_period_ms / 1000)
                 break
@@ -150,6 +192,7 @@ def remove_app_menu_shortcut(name: str, autostart: Optional[bool] = False) -> No
                 link_filepath = str(Path(winshell.startup(common=False)) / f"{name}.lnk")
             else:
                 link_filepath = str(Path(winshell.programs(common=False)) / f"{name}.lnk")
+            LOG.debug("Removing shortcut in %s...", link_filepath)
             if os.path.exists(link_filepath):
                 os.remove(link_filepath)
         except Exception as ex:  # pylint: disable=broad-except
@@ -162,6 +205,7 @@ def remove_app_menu_shortcut(name: str, autostart: Optional[bool] = False) -> No
         else:
             app_dir = os.path.expanduser("~/.local/share/applications")
         app_shortcut = os.path.join(app_dir, f"{slugify(name)}.desktop")
+        LOG.debug("Removing shortcut in %s...", app_shortcut)
         if os.path.exists(app_shortcut):
             os.remove(app_shortcut)
 
@@ -214,3 +258,54 @@ def ensure_local_datetime(date_time: datetime, default_tz: Optional[tzinfo] = No
         else:
             date_time = date_time.replace(tzinfo=pytz.UTC)
     return date_time.astimezone(tzlocal())
+
+
+def get_languages(current_locale: Locale, only_languages: Optional[List[str]] = None):
+    """
+    Returns the list of languages in the specified locale.
+    """
+    languages_data = []
+    for language_id, language_data in current_locale.languages.items():
+        if not only_languages or language_id in only_languages:
+            languages_data.append([language_id, language_data])
+    return sorted(languages_data, key=lambda x: x[1])
+
+
+def copy_fields(src: BaseModel, dst: BaseModel) -> None:
+    src_fields = src.__fields__
+    dst_fields = dst.__fields__
+    for field_name, field_data in src_fields.items():
+        if field_name in dst_fields.keys():
+            setattr(dst, field_name, getattr(src, field_name))
+
+def init_logging(base_package: str, log_file: str, package_level: Optional[Union[int, str]] = None, default_level: Optional[Union[int, str]] = None, message_format: Optional[str] = None, max_file_size: Optional[int] = None, max_backup_files: Optional[int] = None):  # pylint: disable=too-many-arguments
+    """
+    Initializes the Python logging framework.
+    """
+    if package_level is None:
+        package_level = logging.DEBUG
+    if default_level is None:
+        default_level = logging.WARNING
+    if message_format is None:
+        message_formatter = logging.Formatter("%(asctime)s - %(relativepath)s:%(lineno)s - %(name)s:%(funcName)s - %(levelname)s - %(message)s")
+    else:
+        message_formatter = logging.Formatter(message_format)
+    if max_file_size is None:
+        max_file_size = 5 * 1024 * 1024  # 5 MB
+    if max_backup_files is None:
+        max_backup_files = 10
+
+    logging.getLogger("").setLevel(default_level)
+    logging.getLogger(base_package).setLevel(package_level)
+
+    # Configure rotating file handler
+    rotating_file_handler = RotatingFileHandler(filename=log_file, maxBytes=max_file_size, backupCount=max_backup_files)
+    rotating_file_handler.addFilter(PackagePathFilter())
+    rotating_file_handler.setFormatter(message_formatter)
+    logging.getLogger("").addHandler(rotating_file_handler)
+
+    # Configure stderr handler
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.addFilter(PackagePathFilter())
+    stderr_handler.setFormatter(message_formatter)
+    logging.getLogger("").addHandler(stderr_handler)

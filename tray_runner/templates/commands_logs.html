@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+{% from 'bootstrap4/form.html' import render_form %}
+{% from 'bootstrap4/nav.html' import render_breadcrumb_item %}
+{% from 'bootstrap4/utils.html' import render_icon %}
+
+{% block title %}
+  {{ _("Command {command_name}").format(command_name=command.name) }}
+{% endblock %}
+
+{% block breadcrumb %}
+  {{ render_breadcrumb_item('commands_list', _('Commands')) }}
+  {{ render_breadcrumb_item('commands_show', command.name, command_id=command.id) }}
+  {{ render_breadcrumb_item('commands_logs', _("Logs"), command_id=command.id) }}
+  <li class="dropdown ml-auto">
+    <a href="#" class="dropdown-toggle text-decoration-none" data-toggle="dropdown" title="{{ gettext("Export...") }}">
+      {{ render_icon("download") }}<span class="caret ml-0"></span>
+    </a>
+    <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+      <a class="dropdown-item" href="{{ url_for('commands_logs', command_id=command.id, export='json') }}">JSON</a>
+      <a class="dropdown-item" href="{{ url_for('commands_logs', command_id=command.id, export='csv') }}">CSV</a>
+      <a class="dropdown-item" href="{{ url_for('commands_logs', command_id=command.id, export='xls') }}">XLS</a>
+    </div>
+  <li class="ml-2"><a href="{{ url_for('commands_show', command_id=command.id) }}" title="{{ gettext("Show") }}">{{ render_icon("eye") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_edit', command_id=command.id) }}" title="{{ gettext("Edit") }}">{{ render_icon("pencil") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_run', command_id=command.id) }}" class="post_link" title="{{ gettext("Run") }}">{{ render_icon("play") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_delete', command_id=command.id) }}" class="post_link" title="{{ gettext("Delete") }}">{{ render_icon("trash") }}</a></li>
+  <li class="ml-2"><a href="{{ url_for('commands_edit') }}" title="{{ gettext("New") }}">{{ render_icon("plus") }}</a></li>
+  </li>
+{% endblock %}
+
+{% block body %}
+
+  <table class="datatable datatable-simple table table-hover table-bordered" data-order='[[0, "desc"]]'>
+    <thead>
+    <tr>
+      <th>{{ _("Date") }}</th>
+      <th>{{ _("Status") }}</th>
+      <th>{{ _("Duration") }}</th>
+      <th>{{ _("Output") }}</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for log in logs | sort(attribute="start_time") %}
+      <tr class="table-{{ log.status_color }}">
+        <td data-sort="{{ log.start_time }}">{{ log.start_time | datetimeformat }}</td>
+        <td data-sort="{{ log.status.value }}">
+          {% if log.status in ["FAILED", "SUCCESS", "RUNNING"] %}
+            {{ log.status.display_name() }}
+          {% elif log.status in ["ERROR", "STOPPED"] %}
+            {% if log.exit_code == 0 %}
+              {{ log.status.display_name() }}
+            {% else %}
+              {{ _("Error ({exit_code})").format(exit_code=log.exit_code) }}
+            {% endif %}
+          {% else %}
+            {{ _("Unknown") }}
+          {% endif %}
+        </td>
+        <td data-sort="{{ log.duration if log.duration else 0 }}">{{ _("{seconds} seconds").format(seconds=log.duration | numberformat) if log.duration else _("Unknown") }}</td>
+        <td>
+          {% if log.status == "FAILED" %}
+            {{ log.fail_message }}
+          {% elif log.status in ["SUCCESS", "ERROR"] %}
+            {% if log.stdout and log.stderr %}
+              <strong>Standard output</strong><br>
+              <pre><code>{{ log.stdout }}</code></pre><br/>
+              <strong>Error output</strong>:
+              <pre><code>{{ log.stderr }}</code></pre>
+            {% elif log.stdout %}
+              <strong>Standard output</strong>:
+              <pre><code>{{ log.stdout }}</code></pre>
+            {% elif log.stderr %}
+              <strong>Error output</strong>:
+              <pre><code>{{ log.stderr }}</code></pre>
+            {% else %}
+              &nbsp;
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+{% endblock %}
+
+{% block customscripts %}
+  <script>
+    $(document).ready(function () {
+    });
+  </script>
+{% endblock %}
